@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.venv/
+# local outputs from trying things out
+/out/
+/scratch/
+*.mp4
+*.mkv
+*.png
+!docs/**/*.png
+!skill/**/*.png

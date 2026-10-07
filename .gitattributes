@@ -1,0 +1,6 @@
+* text=auto eol=lf
+*.ass -text
+*.ttf binary
+*.otf binary
+*.dll binary
+*.exe binary

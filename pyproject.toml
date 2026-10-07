@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pykaraok"
+version = "0.1.0"
+description = "Headless Aegisub karaoke templaters (stock kara-templater and The0x539 KaraTemplater) plus render and QA tools for ASS effect subtitles"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [{ name = "wenhe753753" }]
+dependencies = [
+    "lupa>=2.4",
+    "fonttools>=4.40",
+    "numpy>=1.24",
+    "pillow>=10",
+]
+
+[project.optional-dependencies]
+draw = ["shapely>=2.0", "skia-pathops>=0.8"]
+cht = ["opencc>=1.1"]
+dev = ["pytest>=8"]
+
+[project.scripts]
+pykaraok = "pykaraok.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+pykaraok = [
+    "vendor/**/*",
+    "aegi/lua/*.lua",
+    "fxlib/*.lua",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# LuaJIT raises Lua errors as Windows SEH exceptions (code 0xe24c4a02) and
+# catches them again in pcall; faulthandler would print each one as "fatal".
+addopts = "-p no:faulthandler"

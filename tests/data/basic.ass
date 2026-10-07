@@ -1,0 +1,17 @@
+[Script Info]
+; test file for pykaraok
+ScriptType: v4.00+
+PlayResX: 1280
+PlayResY: 720
+WrapStyle: 0
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Kara,Arial,48,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,2,0,8,10,10,20,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Comment: 0,0:00:00.00,0:00:00.00,Kara,,0,0,0,code once,function half(x) return x / 2 end
+Comment: 0,0:00:00.00,0:00:00.00,Kara,,0,0,0,template syl,{\an5\pos($scenter,$smiddle)\t($sstart,$send,\fscx120)\bord!half(4)!}
+Comment: 0,0:00:01.00,0:00:04.00,Kara,,0,0,0,karaoke,{\k50}ka{\k50}ra{\k100}o{\k100}ke
+Comment: 0,0:00:05.00,0:00:07.00,Kara,,0,0,0,karaoke,{\k30}te{\k70}st
