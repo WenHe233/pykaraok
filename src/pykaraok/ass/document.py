@@ -289,6 +289,36 @@ class AssDocument:
                         return ln[len(key) + 1:].strip()
         return None
 
+    def rebase_project_paths(self, old_dir: str | Path, new_dir: str | Path) -> list[str]:
+        """Rewrite relative Video/Audio/Timecodes/Keyframes paths so they still resolve when
+        the file is saved in new_dir instead of old_dir.  Returns the keys that changed."""
+        import os
+        old_dir, new_dir = Path(old_dir).resolve(), Path(new_dir).resolve()
+        if old_dir == new_dir:
+            return []
+        changed = []
+        keys = ("Audio File", "Video File", "Timecodes File", "Keyframes File", "Audio URI")
+        for sec in self.sections:
+            if sec.key not in ("aegisub project garbage", "script info"):
+                continue
+            for i, ln in enumerate(sec.lines):
+                for k in keys:
+                    if not ln.startswith(k + ":"):
+                        continue
+                    v = ln[len(k) + 1:].strip()
+                    if not v or v.startswith("?") or Path(v).is_absolute():
+                        continue
+                    target = (old_dir / v).resolve()
+                    if not target.exists():
+                        continue
+                    try:
+                        nv = os.path.relpath(target, new_dir)
+                    except ValueError:          # different drive on Windows
+                        nv = str(target)
+                    sec.lines[i] = f"{k}: {nv}"
+                    changed.append(k)
+        return changed
+
     def style(self, name: str) -> dict | None:
         for s in self.styles:
             if s["name"] == name:

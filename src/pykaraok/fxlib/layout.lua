@@ -48,7 +48,8 @@ function L.geom(ln)
   local g = {an = an, vc = vc, fs = st.fontsize * st.scale_y / 100}
   g.base = first:sub(2, -2):gsub("\\fade?%b()", "")
   g.rest = t:sub(#(t:match("^%b{}") or "") + 1)
-  local fin, fout = first:match("\\fade?%(%s*(%d+)%s*,%s*(%d+)%s*%)")
+  -- \fad 可能写在第一个标签块里，也可能写在第一个音节的标签里，整行搜索
+  local fin, fout = t:match("\\fade?%(%s*(%d+)%s*,%s*(%d+)%s*%)")
   g.fin, g.fout = tonumber(fin) or 0, tonumber(fout) or 0
   local a1 = tonumber(st.color1:match("&H(%x%x)"), 16)
   local a3 = tonumber(st.color3:match("&H(%x%x)"), 16)
@@ -82,8 +83,33 @@ function L.geom(ln)
   end
   g.py = py
   g.cyc = vc == 0 and py - g.fs / 2 or (vc == 1 and py or py + g.fs / 2)
+  -- 与原行垂直对齐方式相同、水平靠左的 \an（1、4、7），逐字逐音节写 \pos(字的左边, g.py) 时用
+  g.lan = ({1, 4, 7})[vc + 1]
   g.chars = chars
   return g
 end
 -- 逐字坐标要精确到 1/128 px，写 \pos 时用 px.layout.p(x)
 function L.p(x) return px.num(x, 7) end
+-- 第 si 个音节对应 g.chars 里的第 first 到 last 个字（音节没有可见字时 last < first）
+function L.syl_range(ln, si)
+  local before = 0
+  for k = 0, si - 1 do
+    local s = ln.kara[k]
+    if s then before = before + unicode.len(s.text_stripped) end
+  end
+  local n = unicode.len(ln.kara[si].text_stripped)
+  return before + 1, before + n
+end
+-- 音节在原行里的位置：返回 {x = 左边, w = 宽, cx = 中心, an = g.lan, y = g.py, first, last}，
+-- 用 {\an!b.an!\pos(!px.layout.p(b.x)!,!b.y!)} 输出这个音节，静止时与原行重合
+function L.syl_box(g, ln, si)
+  local first, last = L.syl_range(ln, si)
+  local a, z = g.chars[first], g.chars[last]
+  if not a or not z then return nil end
+  return {x = a.x, w = z.x + z.w - a.x, cx = (a.x + z.x + z.w) / 2, an = g.lan, y = g.py, first = first, last = last}
+end
+-- 每行只算一次版面：px.layout.cached(orgline)
+function L.cached(ln)
+  if L._for ~= ln then L._for, L._g = ln, L.geom(ln) end
+  return L._g
+end

@@ -108,14 +108,17 @@ def _crop_scale(crop, width, size):
             parts.append(f"crop={cw}:{ch}:{x}:{y}")
             w, h = cw, ch
         else:
+            # vstack needs equal widths: narrower bands are padded on the right
             n = len(rects)
+            maxw = max(r[2] for r in rects)
             labels = "".join(f"[c{i}]" for i in range(n))
             g = f"split={n}{labels}"
             for i, (x, y, cw, ch) in enumerate(rects):
-                g += f";[c{i}]crop={cw}:{ch}:{x}:{y}[d{i}]"
+                pad = f",pad={maxw}:{ch}:0:0:color=0x303030" if cw < maxw else ""
+                g += f";[c{i}]crop={cw}:{ch}:{x}:{y}{pad}[d{i}]"
             g += ";" + "".join(f"[d{i}]" for i in range(n)) + f"vstack=inputs={n}"
             parts.append(g)
-            w = rects[0][2]
+            w = maxw
             h = sum(r[3] for r in rects)
     if width and width != w:
         sh = _even(h * width / w)
@@ -128,10 +131,12 @@ def frame(ass, t: float, out, source: Source, font_dirs=None, crop=None, width=N
     """Render one frame at time t (seconds)."""
     inp, prefix = source.input_args(t, 1.0 / source.fps_float * 2)
     chain = [prefix + subtitle_filter(ass, font_dirs)] if ass else ([prefix.rstrip(",")] if prefix else [])
-    cs, _ = _crop_scale(crop, width, source.size)
+    cs, (ow, _oh) = _crop_scale(crop, width, source.size)
     chain += cs
     if label:
-        chain.append(f"drawtext={_label_font()}:text='%{{pts\\:hms}}':x=6:y=6:fontsize=20:fontcolor=yellow:box=1:boxcolor=black@0.5")
+        fs = max(11, min(20, int(ow / 40)))
+        chain.append(f"drawtext={_label_font()}:text='%{{pts\\:hms}}':x=3:y=h-th-3:fontsize={fs}"
+                     ":fontcolor=yellow:box=1:boxcolor=black@0.5")
     run(_ff() + inp + ["-vf", ",".join(c for c in chain if c), "-frames:v", "1", str(out)])
     return Path(out)
 

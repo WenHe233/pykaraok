@@ -81,7 +81,7 @@ def cmd_apply(args) -> int:
     if not args.output and not args.in_place:
         print("refusing to overwrite the input: pass -o OUTPUT or --in-place", file=sys.stderr)
         return 2
-    res = apply_file(args.input, dst, args.engine, _run_options(args))
+    res = apply_file(args.input, dst, args.engine, _run_options(args), keep_furigana_styles=args.keep_furigana_styles)
     data = res.to_dict()
     lines = [f"{res.status}: {res.stats.get('fx_lines', 0)} fx lines -> {dst}" if res.ok else f"{res.status}: {res.message}"]
     if res.can_template is False:
@@ -208,6 +208,8 @@ def main(argv=None) -> int:
     p.add_argument("-o", "--output")
     p.add_argument("--in-place", action="store_true")
     p.add_argument("--engine", default="stock", choices=["stock", "0x539"])
+    p.add_argument("--keep-furigana-styles", action="store_true",
+                   help="keep the unused <style>-furigana styles karaskel generates (Aegisub keeps them)")
     _add_run_args(p)
     p.set_defaults(fn=cmd_apply)
 
@@ -243,7 +245,17 @@ def main(argv=None) -> int:
     cli_more.register(sub, common, _add_run_args, _out, _run_options)
 
     args = ap.parse_args(argv)
-    return args.fn(args)
+    if os.environ.get("PYKARAOK_DEBUG"):
+        return args.fn(args)
+    try:
+        return args.fn(args)
+    except (RuntimeError, FileNotFoundError, KeyError, ValueError, SyntaxError) as exc:
+        msg = str(exc).strip() or exc.__class__.__name__
+        if getattr(args, "json", False):
+            sys.stdout.write(json.dumps({"error": msg, "type": exc.__class__.__name__}, ensure_ascii=False) + "\n")
+        else:
+            sys.stderr.write(f"error: {msg}\n(set PYKARAOK_DEBUG=1 for a traceback)\n")
+        return 1
 
 
 if __name__ == "__main__":

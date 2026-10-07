@@ -65,48 +65,69 @@ def find_jumps(ass, t0: float, t1: float, source: rf.Source, font_dirs=None, wid
 
 
 def steady_diff(original, effect, source: rf.Source, font_dirs=None, styles=None, outdir=None,
-                threshold: int = 24) -> dict:
+                threshold: int = 24, strip_k: str = "auto") -> dict:
     """Render original and effect file at the middle of each original lyric line and compare pixels.
 
     Used to make sure the effect leaves the static look (position, font, size) of the
-    user's lines unchanged when that is the brief.
+    user's lines unchanged when that is the brief.  The whole frame is compared, so
+    lines shown at the same time (e.g. JP and CN) are reported together.
+
+    strip_k: "auto" removes karaoke tags from the original when it has any (otherwise
+    unsung syllables render in SecondaryColour and every karaoke effect "differs");
+    "yes" / "no" force it.
     """
+    import re
+    import tempfile
+
     from PIL import Image
     doc = AssDocument.load(original)
     lines = [e for e in doc.events if not e["comment"] and e["effect"] != "fx"]
     if styles:
         lines = [e for e in lines if e["style"] in styles]
-    seen = set()
+    ktag = re.compile(r"\\(?:kf|ko|kt|k|K)\d+(?:\.\d+)?")
+    has_k = any(ktag.search(e["text"]) for e in lines)
+    do_strip = strip_k == "yes" or (strip_k == "auto" and has_k)
+    tmp = Path(tempfile.mkdtemp(prefix="pykaraok-steady-"))
+    ref = Path(original)
+    if do_strip:
+        for e in doc.events:
+            if not e["comment"] and ktag.search(e["text"]):
+                e["text"] = ktag.sub("", e["text"]).replace("{}", "")
+                e.pop("raw", None)
+        ref = tmp / "original_sung.ass"
+        doc.save(ref)
+    groups: dict[tuple, list[str]] = {}
+    for e in lines:
+        groups.setdefault((e["start_time"], e["end_time"]), [])
+        if e["style"] not in groups[(e["start_time"], e["end_time"])]:
+            groups[(e["start_time"], e["end_time"])].append(e["style"])
     results = []
     outdir = Path(outdir) if outdir else None
     if outdir:
         outdir.mkdir(parents=True, exist_ok=True)
-    import tempfile
-    tmp = Path(tempfile.mkdtemp(prefix="pykaraok-steady-"))
     try:
-        for e in lines:
-            key = (e["start_time"], e["end_time"])
-            if key in seen:
-                continue
-            seen.add(key)
-            t = (e["start_time"] + e["end_time"]) / 2000
+        for (st, en), sts in sorted(groups.items()):
+            t = (st + en) / 2000
             fa, fb = tmp / "a.png", tmp / "b.png"
-            rf.frame(original, t, fa, source, font_dirs)
+            rf.frame(ref, t, fa, source, font_dirs)
             rf.frame(effect, t, fb, source, font_dirs)
             a = np.asarray(Image.open(fa).convert("RGB"), np.int16)
             b = np.asarray(Image.open(fb).convert("RGB"), np.int16)
             d = np.abs(a - b).max(axis=2)
             n = int((d > threshold).sum())
-            item = {"time": round(t, 3), "style": e["style"], "max_diff": int(d.max()), "pixels_over": n}
-            if n and outdir:
-                vis = np.clip(d * 6, 0, 255).astype(np.uint8)
-                p = outdir / f"diff_{int(t * 1000)}.png"
-                Image.fromarray(vis).save(p)
-                item["diff_image"] = str(p)
+            item = {"time": round(t, 3), "styles": sts, "max_diff": int(d.max()), "pixels_over": n}
+            if n:
+                ys, xs = np.nonzero(d > threshold)
+                item["box"] = [int(xs.min()), int(ys.min()), int(xs.max()), int(ys.max())]
+                if outdir:
+                    vis = np.clip(d * 6, 0, 255).astype(np.uint8)
+                    pth = outdir / f"diff_{int(t * 1000)}.png"
+                    Image.fromarray(vis).save(pth)
+                    item["diff_image"] = str(pth)
             results.append(item)
     finally:
         for f in tmp.glob("*"):
             f.unlink()
         tmp.rmdir()
     changed = [r for r in results if r["pixels_over"]]
-    return {"lines": len(results), "changed": len(changed), "results": results}
+    return {"lines": len(results), "changed": len(changed), "stripped_k": do_strip, "results": results}

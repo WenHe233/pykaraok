@@ -27,18 +27,32 @@ def parse_rects(s: str | None):
 
 
 def default_fonts(ass_path: Path, given) -> list[Path]:
+    """--fonts, else fonts and font-pack zips next to the .ass and next to its recorded video."""
     from .fonts import resolve
     if given:
         return resolve(given)
-    folder = ass_path.resolve().parent
+    folders = [ass_path.resolve().parent]
+    try:
+        video = default_video(ass_path, None)
+    except Exception:
+        video = None
+    if video is not None and video.resolve().parent not in folders:
+        folders.append(video.resolve().parent)
     found = []
-    if any(p.suffix.lower() in FONT_EXTS for p in folder.iterdir()):
-        found.append(folder)
-    for z in folder.glob("*.zip"):
-        name = z.name.lower()
-        if "font" in name or "字体" in z.name:
-            found.append(z)
+    for folder in folders:
+        if any(p.suffix.lower() in FONT_EXTS for p in folder.iterdir()):
+            found.append(folder)
+        for z in folder.glob("*.zip"):
+            name = z.name.lower()
+            if "font" in name or "字体" in z.name:
+                found.append(z)
+    if not found:
+        warn(f"no fonts next to {ass_path.name} or its video; pass --fonts (installed fonts are used otherwise)")
     return resolve(found)
+
+
+def warn(msg: str) -> None:
+    sys.stderr.write("warning: " + msg + "\n")
 
 
 def default_video(ass_path: Path, given):
@@ -60,6 +74,9 @@ def _source(args, ass_path: Path):
     from .ass.document import AssDocument
     from .render.ffmpeg import Source
     video = None if getattr(args, "no_video", False) else default_video(ass_path, getattr(args, "video", None))
+    if video is None and not getattr(args, "no_video", False):
+        warn(f"no video for {ass_path.name} (none recorded or not found): drawing on a plain background "
+             "at 23.976 fps; pass --video to use the real frames and frame rate")
     doc = AssDocument.load(ass_path)
     return Source.make(video, background=getattr(args, "bg", "gray"), doc=doc), video
 
@@ -164,7 +181,9 @@ def register(sub, common, add_run_args, out, run_options):
     p.add_argument("--fonts", action="append")
     p.add_argument("--reapply", action="store_true", help="re-apply the templates and require identical output")
     p.add_argument("--engine", default="stock", choices=["stock", "0x539"])
-    p.add_argument("--video", help="video for render-based checks")
+    p.add_argument("--video", help="video for render-based checks (default: the Video File recorded in the .ass)")
+    p.add_argument("--no-video", action="store_true", help="render-based checks on a plain background")
+    p.add_argument("--bg", default="gray", help="background colour without video")
     p.add_argument("--jumps", action="store_true", help="look for one-frame jumps (renders the range)")
     p.add_argument("--perf", action="store_true", help="measure libass cost per frame")
     p.add_argument("--original", help="original lyrics file: compare the static look line by line (--steady)")
@@ -172,6 +191,8 @@ def register(sub, common, add_run_args, out, run_options):
     p.add_argument("--from", dest="start")
     p.add_argument("--to", dest="end")
     p.add_argument("--diff-dir", help="where to write steady-state diff images")
+    p.add_argument("--strip-k", default="auto", choices=["auto", "yes", "no"],
+                   help="--steady: compare against the original with \\k removed (fully sung); auto = when it has \\k")
     p.set_defaults(fn=lambda a: cmd_check(a, out))
 
     # ------------------------------------------------------------ fonts
@@ -306,11 +327,12 @@ def cmd_check(args, out):
         if args.steady:
             if not args.original:
                 raise SystemExit("--steady needs --original")
-            info = frames.steady_diff(args.original, ass, src, fonts, outdir=args.diff_dir)
+            info = frames.steady_diff(args.original, ass, src, fonts, outdir=args.diff_dir, strip_k=args.strip_k)
             level = "warn" if info["changed"] else "info"
+            how = " (original compared fully sung, \\k removed)" if info["stripped_k"] else ""
             findings.append({"check": "steady", "level": level,
-                             "message": f"{info['changed']} of {info['lines']} lines look different from the "
-                                        "original at their middle", **info})
+                             "message": f"{info['changed']} of {info['lines']} time slots look different from the "
+                                        f"original at their middle{how}", **info})
     errors = sum(1 for f in findings if f["level"] == "error")
     warns = sum(1 for f in findings if f["level"] == "warn")
     text = "\n".join(f"[{f['level']}] {f['check']}: {f['message']}" for f in findings)

@@ -60,3 +60,18 @@ def test_shapely_holes():
     ring = Polygon([(0, 0), (10, 0), (10, 10), (0, 10)], [[(3, 3), (7, 3), (7, 7), (3, 7)]])
     d = shapely_to_ass(ring)
     assert d.count("m ") == 2
+
+
+@pytest.mark.skipif(not shutil.which("ffmpeg"), reason="needs ffmpeg")
+def test_layout_syl_box_matches_original(data_dir, tmp_path):
+    """fxlib layout: each syllable at px.layout.syl_box lands where the original line draws it."""
+    from pykaraok.build.project import build
+    from pykaraok.qa.frames import steady_diff
+    out = tmp_path / "layout.ass"
+    res = build(data_dir / "layout.fx.lua", data_dir / "lyrics.ass", out)
+    assert res.apply["status"] == "ok", res.apply["message"]
+    src = rf.Source(None, "black", (1920, 1080), (25, 1))
+    info = steady_diff(data_dir / "lyrics.ass", out, src)
+    assert info["stripped_k"] is True
+    # sub-pixel anti-aliasing differences only (libass kerns whole lines, syllables are placed one by one)
+    assert all(r["max_diff"] < 64 for r in info["results"]), info["results"]

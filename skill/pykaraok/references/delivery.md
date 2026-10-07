@@ -11,6 +11,7 @@
   用户打开后可以直接在 Aegisub 里改参数、重新套用。用户要求时再拆分成 `X_template.ass` 和 `X_fx.ass`。
 - 模板源文件（`*.fx.lua`）和交付文件放在一起，方便下次修改。
 - 原文件里的 BOM、换行、`[Aegisub Project Garbage]`、Extradata、未改动的行保持原样（pykaraok 会自动处理）。
+- 样式只会增加、不会被改动：模板源文件里 `--@style` 补上的样式会写进去。kara-templater 生成的 `*-furigana` 样式默认删掉；用户在 Aegisub 里重新套用时，它们会再出现，这不影响画面。
 
 ## 预览
 

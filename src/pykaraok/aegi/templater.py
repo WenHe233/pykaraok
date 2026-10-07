@@ -66,10 +66,24 @@ def event_stats(doc: AssDocument) -> dict:
     return stats
 
 
+def drop_generated_furigana_styles(doc: AssDocument, before: set[str]) -> list[str]:
+    """karaskel creates a "<style>-furigana" style for every style; drop the new ones no line uses."""
+    used = {e["style"] for e in doc.events}
+    drop = [s["name"] for s in doc.styles
+            if s["name"].endswith("-furigana") and s["name"] not in before and s["name"] not in used]
+    doc.styles = [s for s in doc.styles if s["name"] not in drop]
+    return drop
+
+
 def apply_templates(doc: AssDocument, engine: str = "stock", options: RunOptions | None = None,
-                    require_menu_check: bool = False) -> ApplyResult:
-    """Run the templater on `doc` in place. The document is changed only when the run succeeds."""
+                    require_menu_check: bool = False, keep_furigana_styles: bool = False) -> ApplyResult:
+    """Run the templater on `doc` in place. The document is changed only when the run succeeds.
+
+    Unless keep_furigana_styles, the "-furigana" styles karaskel generates are removed again when
+    no line uses them (Aegisub keeps them; they would only add style lines to the deliverable).
+    """
     t0 = time.perf_counter()
+    styles_before = {s["name"] for s in doc.styles}
     script, macro = _engine_script(engine)
     rt = AegiRuntime(doc, options, script_path=doc.path)
     res = ApplyResult(status="error", engine=engine)
@@ -91,7 +105,10 @@ def apply_templates(doc: AssDocument, engine: str = "stock", options: RunOptions
     res.status, res.message = status, msg
     if status == "ok":
         rt.commit_to(doc)
+        dropped = [] if keep_furigana_styles else drop_generated_furigana_styles(doc, styles_before)
         res.stats = event_stats(doc)
+        if dropped:
+            res.stats["removed_generated_styles"] = dropped
     res.logs = rt.logs
     res.warnings = list(getattr(rt.metrics, "warnings", []))
     if engine == "stock" and can is False:
@@ -102,10 +119,11 @@ def apply_templates(doc: AssDocument, engine: str = "stock", options: RunOptions
 
 
 def apply_file(src: str | Path, dst: str | Path, engine: str = "stock",
-               options: RunOptions | None = None) -> ApplyResult:
+               options: RunOptions | None = None, keep_furigana_styles: bool = False) -> ApplyResult:
     doc = AssDocument.load(src)
-    res = apply_templates(doc, engine, options)
+    res = apply_templates(doc, engine, options, keep_furigana_styles=keep_furigana_styles)
     if res.ok:
+        doc.rebase_project_paths(Path(src).parent, Path(dst).parent)
         doc.save(dst)
         res.stats["output"] = str(dst)
         res.stats["output_bytes"] = Path(dst).stat().st_size

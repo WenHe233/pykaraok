@@ -40,14 +40,40 @@
 | 函数 | 说明 |
 |---|---|
 | `circle(r)`、`circle_at(cx, cy, r, ccw)`、`ellipse(rx, ry)` | 圆、椭圆；ccw 反向，可在别的图形里挖洞 |
-| `star(n, R, r, rot)`、`sparkle(R, a)`、`heart(r)`、`rrect(w, h, r)`、`drop(w, h)`、`polygon(pts)` | 常用图形 |
+| `star(n, R, r, rot)` | n 角星，外半径 R、内半径 r，rot 为起始角（度，默认 -90 即尖朝上） |
+| `sparkle(R, a)` | 四角闪光，半径 R；a 是四条曲线在中心收腰处离中心的距离，越小越细（默认 0.11 R） |
+| `heart(r)`、`rrect(w, h, r)`、`drop(w, h)`、`polygon(pts)` | 心形、圆角矩形、水滴（尖头朝上）、多边形 |
 | `boxed(shape, W, H)` | 前面加 `m 0 0 m W H`，固定包围盒，让几块图形用同一个原点对齐 |
 | `xform(shape, sx, sy, dx, dy, deg)` | 缩放、旋转、平移 |
 | `bounds(shape)`、`normalize(shape)` | 包围盒；平移到左上角为 0, 0 |
 
 ## layout（px.layout.*）
 
-`px.layout.geom(line)` 按 libass 规则算原行每个字的位置，精确到 1/64 px，处理 `\an`、`\pos`、边距、行内 `\alpha`。用于静止时要与原行逐像素重合的效果（watercolor 示例）。写坐标用 `px.layout.p(x)`，保留 7 位小数。
+按 libass 规则算原行每个字的位置，精确到 1/64 px，处理 `\an`、`\pos`、边距、行内 `\alpha`。用于静止时要与原行重合的效果（watercolor 示例）。
+
+| 函数 | 返回 |
+|---|---|
+| `geom(line)` | 表 g：`g.chars[i] = {c, x, w, cx, a1, a3, hide, sp}`（x 为字左边，px；a1/a3 为该字的填充、描边透明度；hide 为不可见；sp 为空格）；`g.an` 原行对齐；`g.lan` 同样垂直对齐的靠左 `\an`（1/4/7）；`g.py` 锚点 y；`g.cyc` 字的垂直中心；`g.fs` 字号乘纵向缩放；`g.base` 行首标签块去掉 `\fad` 后的内容；`g.rest` 去掉行首标签块后的正文；`g.fin`/`g.fout` 行内 `\fad` 的淡入淡出（没有为 0） |
+| `cached(orgline)` | 同一行只算一次的 geom |
+| `syl_range(orgline, si)` | 第 si 个音节对应 g.chars 的第 first..last 个字 |
+| `syl_box(g, orgline, si)` | `{x, w, cx, an, y, first, last}`：音节左边、宽、中心，以及要用的 `\an` 和 y |
+| `p(x)` | 坐标写成 7 位小数（libass 1/64 px 取整需要） |
+
+逐音节、静止时与原行重合的最小写法（tests/data/layout.fx.lua）：
+
+```lua
+--@use core layout
+--@code once | 逐音节定位
+function at_syl()
+  local g = px.layout.cached(orgline)
+  local b = px.layout.syl_box(g, orgline, syl.i)
+  return string.format("\\an%d\\pos(%s,%s)", b.an, px.layout.p(b.x), px.num(b.y, 3))
+end
+--@template syl noblank
+{!at_syl()!}
+```
+
+libass 排整行时带字距调整，逐音节摆放没有字距调整，所以拉丁字母可能有亚像素级的边缘差异。
 
 ## emit
 

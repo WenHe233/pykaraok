@@ -102,4 +102,14 @@ retime 的模式，以下 S 为输出行原开始时间：
 - `code line` 只能读到当前行和之前的行，读不到下一句的时间。退场只能放在本句时间之内；需要整首信息时，把汇总逻辑放在最后一行（12_IN 的“罐子行”做法）。
 - 在 Aegisub 里，`math.random` 每次套用得到的序列相同，但取决于调用顺序：加一条模板就会让其它模板的随机值全部变化。用 `px.rand`。
 - 测字宽依赖字体：在 Aegisub 里重新套用的机器上必须装好同样的字体，否则位置会变。
-- 字幕里有注音（`|<` 语法）时，karaskel 会生成 `样式-furigana` 样式并写进文件。
+- 歌词行里的标签（例如第一个音节里的 `{\fad(300,300)}`）不在 `syl.text_stripped` 里，生成的行默认也不带（`keeptags` 才保留）。要沿用原行的淡入淡出，读 `px.layout.geom(orgline)` 的 `fin`/`fout`，或自己从 `orgline.text` 里解析。
+- 套用时 karaskel 会给**每个**样式生成一个 `样式-furigana` 样式（不管有没有注音），Aegisub 会把它们写进文件。pykaraok 默认删掉其中没有被任何行使用的，`--keep-furigana-styles` 保留。
+
+## 各处能用哪些变量
+
+| 位置 | 可用 |
+|---|---|
+| `code once` 里定义的函数 | 调用时的 tenv 全部可用：`orgline`、`line`、`syl`、`j` 等，取调用那一刻的值 |
+| `code line` | `orgline` 和 `line` 是**同一张**输入行表（改它会改输入行）；`syl` 为 nil |
+| `code syl` | `orgline`、`line`（输入行）、`syl` |
+| `template line` / `syl` 的 `!...!` | `line` 是正在生成的输出行（输入行的复制）；`orgline` 是输入行 |

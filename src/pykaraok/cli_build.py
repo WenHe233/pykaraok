@@ -16,6 +16,8 @@ def register(sub, common, add_run_args, out, run_options):
                    help="lines without \\k: keep as is, one syllable for the whole line, or even per character")
     p.add_argument("--no-apply", action="store_true", help="only assemble, do not run the templater")
     p.add_argument("--strip-comments", action="store_true", help="drop Lua comments from code lines")
+    p.add_argument("--keep-furigana-styles", action="store_true",
+                   help="keep the unused <style>-furigana styles karaskel generates (Aegisub keeps them)")
     p.add_argument("--input", dest="input", help=argparse_hidden())
     add_run_args(p)
     p.set_defaults(fn=lambda a: cmd_build(a, out, run_options))
@@ -43,7 +45,8 @@ def cmd_build(args, out, run_options):
     opts = None if args.no_apply else run_options(args)
     res = build(args.source, args.lyrics, args.output, args.engine,
                 args.styles.split(",") if args.styles else None, args.k_mode,
-                apply=not args.no_apply, run_options=opts, keep_comments=not args.strip_comments)
+                apply=not args.no_apply, run_options=opts, keep_comments=not args.strip_comments,
+                keep_furigana_styles=args.keep_furigana_styles)
     d = res.to_dict()
     lines = [f"output: {res.output}", f"engine: {res.engine}", f"lyric lines: {res.lyric_lines} ({', '.join(res.lyric_styles)})",
              f"generated lines: {res.generated_lines}, first template at event #{res.first_template_event}"]
