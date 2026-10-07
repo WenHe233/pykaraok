@@ -35,6 +35,16 @@ def register(sub, common, out):
                    help="CHAR[@x0,y0,x1,y1][+dx,dy][*sx,sy] (fractions of the cell), e.g. 气 or 汽@0.4,0,1,1+-0.3,0")
     p.set_defaults(fn=lambda a: cmd_draw_compose(a, out))
 
+    p = common(sub.add_parser("paths", help="where examples, fxlib, vendored scripts and the cache live"))
+    p.set_defaults(fn=lambda a: cmd_paths(a, out))
+
+    sp = sub.add_parser("skill", help="agent skill management")
+    ssub = sp.add_subparsers(dest="what", required=True)
+    p = common(ssub.add_parser("install", help="link the skill into ~/.claude/skills and ~/.agents/skills"))
+    p.add_argument("--target", action="append", help="skills directory to install into (repeatable)")
+    p.add_argument("--copy", action="store_true", help="copy instead of linking")
+    p.set_defaults(fn=lambda a: cmd_skill_install(a, out))
+
     p = common(sub.add_parser("beats", help="beat grid (BPM and first beat) of a song range"))
     p.add_argument("media", help="video or audio file")
     p.add_argument("--from", dest="start", required=True)
@@ -112,6 +122,69 @@ def cmd_draw_compose(args, out):
     path, adv = compose(face, [_parse_part(s) for s in args.part], args.size)
     d = path_to_ass(path)
     out(args, {"drawing": d, "advance": round(adv, 3), "font": face.family}, d)
+    return 0
+
+
+def repo_root() -> Path | None:
+    from . import config
+    root = config.PACKAGE_DIR.parents[1]
+    return root if (root / "skill" / "pykaraok" / "SKILL.md").exists() else None
+
+
+def cmd_paths(args, out):
+    from . import config
+    root = repo_root()
+    data = {
+        "repo": str(root) if root else None,
+        "examples": str(root / "examples") if root else None,
+        "skill": str(root / "skill" / "pykaraok") if root else None,
+        "fxlib": str(config.FXLIB_DIR),
+        "vendor": str(config.VENDOR_DIR),
+        "cache": str(config.cache_dir()),
+        "libs": str(config.libs_dir()),
+    }
+    out(args, data, "\n".join(f"{k}: {v}" for k, v in data.items()))
+    return 0
+
+
+def _link_dir(src: Path, dst: Path, copy: bool) -> str:
+    import shutil
+    import sys
+    if dst.exists() or dst.is_symlink():
+        if dst.is_symlink() or (sys.platform == "win32" and _is_junction(dst)):
+            dst.unlink() if dst.is_symlink() else dst.rmdir()
+        else:
+            shutil.rmtree(dst)
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    if copy:
+        shutil.copytree(src, dst)
+        return "copied"
+    if sys.platform == "win32":
+        import _winapi
+        _winapi.CreateJunction(str(src), str(dst))
+        return "junction"
+    dst.symlink_to(src, target_is_directory=True)
+    return "symlink"
+
+
+def _is_junction(p: Path) -> bool:
+    try:
+        return p.is_junction()
+    except AttributeError:
+        return False
+
+
+def cmd_skill_install(args, out):
+    root = repo_root()
+    if not root:
+        raise SystemExit("skill sources not found (install pykaraok from a git checkout with `pip install -e`)")
+    src = root / "skill" / "pykaraok"
+    targets = [Path(t) for t in args.target] if args.target else \
+        [Path.home() / ".claude" / "skills", Path.home() / ".agents" / "skills"]
+    done = {}
+    for t in targets:
+        done[str(t / "pykaraok")] = _link_dir(src, t / "pykaraok", args.copy)
+    out(args, {"installed": done}, "\n".join(f"{k} ({v})" for k, v in done.items()))
     return 0
 
 

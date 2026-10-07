@@ -1,0 +1,18 @@
+# check 各项的含义和处理
+
+| 项目 | 含义 | 处理 |
+|---|---|---|
+| `template_position` | 第一条模板行的位置。超过第 50 个对话行时，Aegisub 的 Apply 菜单不可用 | 用 build 生成时会自动满足；手工改文件时把模板行挪到前面 |
+| `fx_sanity` | 什么都不画的 fx 行、结束不晚于开始的行、超过 6000 字符的行 | 空行多半来自第 0 个占位音节，给模板加 `noblank` |
+| `karaoke_timing` | `\k` 总和与行时长不一致，或音节短于 50 ms | 只放一个开头 `{\k1}` 的整句效果可以忽略 |
+| `collisions` | 时间重叠、又没有 `\pos`/`\move`/`\org`/`\t` 的可见行。libass 会把其中一行挤开，表现为字幕突然跳一帧或上下叠成两行 | 给 fx 行加 `\pos`，或者加 `px.still` |
+| `concurrency` | 同屏事件的峰值；同一样式的歌词行时间重叠（画面上同时出现两行） | 用户要求“同一时刻只显示一句”时必须为 0 |
+| `fonts` | 用到的字体是否找得到，以及缺哪些字 | 见 fonts.md |
+| `reapply`（`--reapply`） | 再套用一次，fx 行必须完全一致 | 不一致时，通常是用了 `math.random`、时间读法不稳定，或者字体不同 |
+| `perf`（`--perf`） | libass 每帧耗时和预算（24 fps 时为 41 ms） | 超预算会卡顿。减少图层数，避免用大量小字或小图形做颗粒，大块模糊改用较小的 `\blur` |
+| `jumps`（`--jumps`） | 只有一帧与前后都不同、前后两帧却相同：典型的“错位乱飘一帧” | 多半是碰撞（见 collisions），或者相邻两段 `\t`、两行交接时有缝 |
+| `steady`（`--original --steady`） | 每句歌词中段，特效文件与原文件逐像素比较 | 用户要求“不动我的歌词位置和字体样式”时，静止阶段应为 0 差异；`--diff-dir` 输出差异图 |
+
+另外两个比较工具：
+- `pykaraok diff A B` 比较两份文件的 fx 行。`time_round` 是 10 ms 以内的取整差异，`extradata` 是 `{=N}` 折叠标记的差异，`numeric` 是数字差异（会报告最大差值）。
+- `pykaraok render vsf X.ass --at T`：用户的 Aegisub 预览器可能是 xy-VSFilter，交付只保证 libass，但可以先看一眼 VSFilter 下有没有明显问题，有就在说明里提一句。

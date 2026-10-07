@@ -149,6 +149,11 @@ def register(sub, common, add_run_args, out, run_options):
     p.add_argument("--no-audio", action="store_true")
     p.set_defaults(fn=lambda a: cmd_preview(a, out))
 
+    p = common(rsub.add_parser("vsf", help="one frame with VSFilter (CSRI, Windows) to spot VSFilter-only problems"))
+    add_render_common(p)
+    p.add_argument("--at", required=True)
+    p.set_defaults(fn=lambda a: cmd_vsf(a, out))
+
     p = common(rsub.add_parser("perf", help="libass render cost per frame over a range"))
     add_render_common(p, with_range=True)
     p.set_defaults(fn=lambda a: cmd_perf(a, out))
@@ -248,6 +253,16 @@ def cmd_preview(args, out):
                       width=args.width, audio=not args.no_audio, crf=args.crf)
     info["range"] = [round(t0, 3), round(t1, 3)]
     out(args, info, f"{o}  {info['bytes'] / 1e6:.1f} MB, {t0:.2f}s-{t1:.2f}s")
+    return 0
+
+
+def cmd_vsf(args, out):
+    from .render import vsfilter
+    ass = Path(args.ass)
+    src, video = _source(args, ass)
+    o = _out_path(args, ass, "vsf.png")
+    vsfilter.frame(ass, parse_time(args.at), o, video, src.size, default_fonts(ass, args.fonts))
+    out(args, {"output": str(o), "dll": str(vsfilter.find_dll())}, str(o))
     return 0
 
 
