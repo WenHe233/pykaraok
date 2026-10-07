@@ -4,6 +4,8 @@ The delivered files were produced by earlier one-off harnesses, so a few
 known differences are allowed:
   * time_round: those harnesses truncated milliseconds; Aegisub (and pykaraok)
     round to the nearest centisecond, 5 ms up (agi::Time::operator int).
+  * kara-templater copies a line's extradata (fold markers) onto its fx lines, as
+    Aegisub does; the old harnesses dropped it ("extradata").
   * alma measured text with fontTools instead of GDI; with --metrics fonttools
     the positions agree to 0.1 px.
 
@@ -36,11 +38,11 @@ def fonts07(tmp_path_factory):
 
 CASES = [
     # (id, template source, delivered reference, font dir key, metrics, allowed categories, max numeric delta)
-    ("07_wash", "kimishinu_07/与你相恋到生命尽头07_晕染特效.ass", None, "fonts07", "auto", {"identical", "time_round"}, 0),
-    ("07_grain", "kimishinu_07/与你相恋到生命尽头07_晕染特效_水彩颗粒.ass", None, "fonts07", "auto", {"identical", "time_round"}, 0),
-    ("12_in_v1", "kimishinu_12_IN/12_IN_template.ass", "kimishinu_12_IN/12_IN_fx.ass", "fonts07", "auto", {"identical", "time_round"}, 0),
-    ("12_in_v2", "kimishinu_12_IN/12_IN_v2_template.ass", "kimishinu_12_IN/12_IN_v2_fx.ass", "fonts07", "auto", {"identical", "time_round"}, 0),
-    ("12_in_v2_cht", "kimishinu_12_IN/12_IN_v2_CHT_template.ass", "kimishinu_12_IN/12_IN_v2_CHT_fx.ass", "fonts07", "auto", {"identical", "time_round"}, 0),
+    ("07_wash", "kimishinu_07/与你相恋到生命尽头07_晕染特效.ass", None, "fonts07", "auto", {"identical", "time_round", "extradata"}, 0),
+    ("07_grain", "kimishinu_07/与你相恋到生命尽头07_晕染特效_水彩颗粒.ass", None, "fonts07", "auto", {"identical", "time_round", "extradata"}, 0),
+    ("12_in_v1", "kimishinu_12_IN/12_IN_template.ass", "kimishinu_12_IN/12_IN_fx.ass", "fonts07", "auto", {"identical", "time_round", "extradata"}, 0),
+    ("12_in_v2", "kimishinu_12_IN/12_IN_v2_template.ass", "kimishinu_12_IN/12_IN_v2_fx.ass", "fonts07", "auto", {"identical", "time_round", "extradata"}, 0),
+    ("12_in_v2_cht", "kimishinu_12_IN/12_IN_v2_CHT_template.ass", "kimishinu_12_IN/12_IN_v2_CHT_fx.ass", "fonts07", "auto", {"identical", "time_round", "extradata"}, 0),
     ("rrk", "rrk-ass/rrk_karaoke.ass", None, "rrk-ass", "auto", {"identical", "time_round"}, 0),
     ("alma", "alma/Live《A·I》插入曲_特效.ass", None, "alma", "fonttools", {"identical", "time_round", "numeric"}, 0.1001),
 ]

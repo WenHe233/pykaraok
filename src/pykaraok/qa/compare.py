@@ -4,6 +4,7 @@ Used by regression tests and by `pykaraok diff`.  Categories:
 
   identical      the formatted lines are equal
   time_round     only start/end differ, by at most 10 ms (centisecond rounding)
+  extradata      only the {=N} extradata references differ
   numeric        same text skeleton, numbers differ (positions, clip coordinates ...);
                  reports the largest absolute difference
   structural     anything else
@@ -75,6 +76,9 @@ def compare_events(a: list[dict], b: list[dict], max_examples: int = 5) -> DiffR
                                                   "margin_r", "margin_t", "effect", "text"))
         (sa, ea), (sb, eb) = _rounded(x), _rounded(y)
         dt = max(abs(sa - sb), abs(ea - eb))
+        if same_fields and dt == 0 and x.get("extra_ids") != y.get("extra_ids"):
+            bump("extradata")
+            continue
         if same_fields:
             rep.max_time_delta_ms = max(rep.max_time_delta_ms, dt)
             bump("time_round" if dt <= 10 else "structural")
