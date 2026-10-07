@@ -29,6 +29,8 @@ def register(sub, common, add_run_args, out, run_options):
     p.add_argument("module", nargs="?", help="print one module")
     p.set_defaults(fn=lambda a: cmd_fxlib(a, out))
 
+    _register_tools(sub, common, out)
+
 
 def argparse_hidden():
     import argparse
@@ -89,3 +91,8 @@ def cmd_fxlib(args, out):
     text = "\n".join(f"{k}: {v['description']}" for k, v in mods.items())
     out(args, mods, text)
     return 0
+
+
+def _register_tools(sub, common, out):
+    from . import cli_tools
+    cli_tools.register(sub, common, out)
