@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from lupa import luajit21
+from lupa.luajit21 import lua_type as lupa_typeof
 
 from .. import config
 from ..ass import codec
@@ -66,7 +67,8 @@ class AegiRuntime:
                                        register_eval=False, register_builtins=False)
         self.api = self._install()
         if self.opts.seed is not None:
-            self.lua.execute(f"math.randomseed({int(self.opts.seed)})")
+            # seed once and ignore later reseeding (0x539's main calls math.randomseed(os.time()))
+            self.lua.execute(f"math.randomseed({int(self.opts.seed)}); math.randomseed = function() end")
         if doc is not None:
             self.load_document(doc)
 
@@ -159,6 +161,24 @@ class AegiRuntime:
         def compile_moon(src, name):
             return moon.compile_cached(src, str(name))
 
+        def to_py(v, depth=0):
+            if depth > 64:
+                raise ValueError("table nesting too deep")
+            if lupa_typeof(v) == "table":
+                keys = list(v.keys())
+                if keys and all(isinstance(k, int) for k in keys) and sorted(keys) == list(range(1, len(keys) + 1)):
+                    return [to_py(v[k], depth + 1) for k in range(1, len(keys) + 1)]
+                return {str(k): to_py(v[k], depth + 1) for k in keys}
+            return v
+
+        def json_encode(v, *_):
+            import json as _json
+            return _json.dumps(to_py(v), ensure_ascii=False)
+
+        def json_decode(s, *_):
+            import json as _json
+            return lua.table_from(_json.loads(s), recursive=True) if s else None
+
         def re_impl():
             from .re_impl import make_re_impl
             return make_re_impl(lua)
@@ -188,6 +208,8 @@ class AegiRuntime:
             "dialog": dialog,
             "compile_moon": compile_moon,
             "re_impl": re_impl,
+            "json_encode": json_encode,
+            "json_decode": json_decode,
             "include_dirs": lua.table_from(self.include_dirs),
             "script_dir": self.script_dir,
             "trace_level": int(opts.trace_level),

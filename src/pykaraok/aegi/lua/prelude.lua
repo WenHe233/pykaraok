@@ -107,6 +107,14 @@ package.loaded.moonscript = {
   loadfile = function(path) return load_chunk(path) end,
 }
 
+-- Error helpers some MoonScript scripts load to map stack traces back to .moon
+-- lines (0x.KaraTemplater does).  Line numbers stay those of the compiled Lua.
+package.preload['moonscript.errors'] = function()
+  return {reverse_line_number = function(_, _, line) return line end,
+          rewrite_traceback = function(text) return text end}
+end
+package.preload['moonscript.line_tables'] = function() return {} end
+
 -- dofile and loadfile are replaced with include (auto4_lua.cpp)
 dofile = nil
 loadfile = nil
@@ -154,6 +162,12 @@ end
 
 package.preload['aegisub.__re_impl'] = function()
   return PY.re_impl()
+end
+
+-- Aegisub <= 3.4 shipped LuaJSON (needs lpeg); ILL and others only use encode/decode
+package.preload['json'] = function()
+  return {encode = function(v) return PY.json_encode(v) end,
+          decode = function(s) return PY.json_decode(s) end}
 end
 
 package.preload['aegisub.__lfs_impl'] = function()
