@@ -69,6 +69,7 @@ pykaraok build 效果.fx.lua --lyrics 歌词.ass -o 歌词_特效.ass
 ```
 
 - 歌词文件不会被修改。输出是单文件，包含三部分：说明行和模板行在最前（Aegisub 只在前 50 行找模板），歌词行转为 karaoke 注释行，后面是生成的 fx 行。
+- 输出可以放在别的目录：build 会改写文件里记录的视频路径，之后 check 和 render 仍能找到视频，以及视频旁边的字体。看到 `warning: no video` 或 `no fonts` 时，加 `--video` 和 `--fonts`。
 - 歌词行没有 `\k` 时：用 `--k line`（整句一个音节）或 `--k char`（按字平均分配）。
 - 报错时看输出里的 Lua 错误和行号。`[log N]` 是模板里 `aegisub.log` 的输出。
 
