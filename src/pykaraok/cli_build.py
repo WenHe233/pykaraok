@@ -7,7 +7,7 @@ from pathlib import Path
 
 def register(sub, common, add_run_args, out, run_options):
     p = common(sub.add_parser("build", help="template source + lyrics file -> single effect .ass (applied)"))
-    p.add_argument("source", help="template source file (see `pykaraok help-source`)")
+    p.add_argument("source", help="template source file (format: skill/pykaraok/references/source-format.md)")
     p.add_argument("--lyrics", required=True, help="the user's lyrics .ass (not modified)")
     p.add_argument("-o", "--output", help="default: <lyrics>_特效.ass next to the lyrics file")
     p.add_argument("--engine", choices=["stock", "0x539"], help="default: --@meta engine=, else stock")

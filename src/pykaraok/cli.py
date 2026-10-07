@@ -107,6 +107,9 @@ def cmd_run_macro(args) -> int:
     if not name:
         print("the script registers no macros", file=sys.stderr)
         return 2
+    if not args.output:
+        print("pass -o OUTPUT (the input is never overwritten)", file=sys.stderr)
+        return 2
     sel = [int(x) for x in args.selected.split(",")] if args.selected else None
     status, msg, secs = rt.run_macro(name, sel, args.active or 0)
     if status == "ok":
