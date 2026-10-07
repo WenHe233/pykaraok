@@ -43,9 +43,11 @@ def _run_options(args):
     if getattr(args, "dialog", None):
         dialog = json.loads(Path(args.dialog).read_text(encoding="utf-8")) if os.path.exists(args.dialog) \
             else json.loads(args.dialog)
+    from .cli_more import default_fonts
+    fonts = default_fonts(Path(args.input), args.fonts) if getattr(args, "input", None) else         __import__("pykaraok.fonts", fromlist=["resolve"]).resolve(args.fonts)
     return RunOptions(
         include_dirs=args.include or [],
-        font_dirs=args.fonts or [],
+        font_dirs=fonts,
         metrics=args.metrics,
         trace_level=args.trace,
         video_size=video_size,
@@ -57,7 +59,8 @@ def _run_options(args):
 
 
 def _add_run_args(p):
-    p.add_argument("--fonts", action="append", help="font file or directory (repeatable); loaded privately for measuring")
+    p.add_argument("--fonts", action="append", help="font dir, font file or zip font pack (repeatable; default: "
+                                                    "fonts next to the input file); loaded privately for measuring")
     p.add_argument("--include", action="append", help="extra Lua include dir (repeatable)")
     p.add_argument("--metrics", default="auto", choices=["auto", "gdi", "fonttools"],
                    help="text_extents backend (auto = GDI on Windows, like Aegisub)")
