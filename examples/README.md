@@ -2,6 +2,20 @@
 
 每个子目录是一份模板源文件（`*.fx.lua`）和说明。前四个从以前交付的项目里用 `pykaraok extract` 抽出，只含模板和代码，不含歌词、视频和字体。新项目从最接近的一个复制过来改。
 
+## 许可证
+
+Copyright (c) 2026 wenhe753753
+
+除另有标注的第三方内容外，本目录及其子目录中的示例模板和文档采用 [Creative Commons Attribution-NonCommercial 4.0 International（CC BY-NC 4.0）](https://creativecommons.org/licenses/by-nc/4.0/)，完整条款见 [LICENSE](LICENSE)。仓库根目录的 MIT 协议不适用于这些示例。
+
+你可以为非商业目的分享和改编示例。分享时须注明作者、提供来源及协议链接，并标明是否修改。署名可写为：
+
+> 基于 wenhe753753 的 [pykaraok 示例](https://github.com/WenHe233/pykaraok/tree/main/examples)，按 [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/) 使用。修改说明：填写你的改动；未修改则注明未修改。
+
+pykaraok 本体及 `src/pykaraok/fxlib/` 函数库仍采用 MIT 协议。仅使用 pykaraok 工具不会使你的原创模板或输出自动适用本目录的协议；复制或改编本目录示例中的受版权保护内容时，须遵守本目录的协议。
+
+## 示例列表
+
 | 目录 | 来源项目 | 效果 | 模板写法 |
 |---|---|---|---|
 | `starter` | 新写 | 日文逐音节浮入、唱到时放大变色并洒闪光；中文整句淡入，垫柔光 | 用 fxlib（core、color、shapes、emit），最适合作为起点 |

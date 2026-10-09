@@ -19,3 +19,12 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+Scope of this MIT license
+-------------------------
+This license applies to pykaraok itself, except for the following:
+
+- The examples/ directory is licensed under Creative Commons
+  Attribution-NonCommercial 4.0 International (CC BY-NC 4.0).
+  See examples/LICENSE and examples/README.md.
+- Third-party components retain their respective licenses and notices.

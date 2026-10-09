@@ -80,4 +80,6 @@ pykaraok apply 模板.ass -o 结果.ass
 
 ## 许可证
 
-本仓库代码为 MIT。`src/pykaraok/vendor/` 下各目录保留原许可证。
+- pykaraok 本体采用 [MIT 协议](LICENSE)，包括 `src/pykaraok/fxlib/` 中的函数库。
+- `examples/` 下的示例模板和文档采用 [CC BY-NC 4.0（署名、非商业性使用 4.0 国际）](examples/LICENSE)。使用或改编示例须遵守署名和非商业性使用要求，详见 [示例许可证说明](examples/README.md#许可证)。
+- `src/pykaraok/vendor/` 下的第三方代码保留原许可证。
