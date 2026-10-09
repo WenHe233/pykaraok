@@ -12,7 +12,12 @@ from ..render import ffmpeg as rf
 
 
 def stream_frames(ass, t0: float, t1: float, source: rf.Source, font_dirs=None, width: int = 480):
-    """Yield (time, HxWx3 uint8 array) for every frame in [t0, t1)."""
+    """Yield (time, HxWx3 uint8 array) for every frame in [t0, t1).
+
+    The first frame is the first one at or after t0 (Source.first_frame).  The time is the
+    frame's own timestamp, the time libass rendered it at; `render frame --at` with that
+    time shows the same frame.
+    """
     w, h = source.size
     ow = width - width % 2
     oh = int(round(h * ow / w)) // 2 * 2
@@ -22,15 +27,14 @@ def stream_frames(ass, t0: float, t1: float, source: rf.Source, font_dirs=None, 
         ["-vf", chain, "-f", "rawvideo", "-pix_fmt", "rgb24", "-fps_mode", "passthrough", "-"]
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     size = ow * oh * 3
-    i = 0
-    step = 1.0 / source.fps_float
+    k = source.first_frame(t0)
     try:
         while True:
             buf = proc.stdout.read(size)
             if len(buf) < size:
                 break
-            yield t0 + i * step, np.frombuffer(buf, np.uint8).reshape(oh, ow, 3)
-            i += 1
+            yield source.frame_time(k), np.frombuffer(buf, np.uint8).reshape(oh, ow, 3)
+            k += 1
     finally:
         proc.stdout.close()
         proc.wait()

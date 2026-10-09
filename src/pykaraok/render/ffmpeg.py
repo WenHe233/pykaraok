@@ -3,16 +3,20 @@
 Known pitfalls handled here (each cost time in earlier projects):
   * filter arguments: Windows drive colons and backslashes must be escaped
   * timestamps: `-ss` before `-i` plus `-copyts` keeps the original video time,
-    so the ass filter renders the right moment
+    so the ass filter renders the right moment.  -ss keeps the first frame whose
+    pts is at or after it, and MKV rounds pts to whole ms, so seek half a frame early
   * fontsdir takes a single directory, and libass reads every file directly in
     it (a video next to the fonts too) but none in subfolders (see fonts.single_dir)
   * yuv420p needs even crop/scale sizes
   * `-vsync` is gone in new ffmpeg builds; use -fps_mode
   * without a video, a lavfi colour source is shifted with setpts instead of
-    seeking (seeking a generated source renders every frame up to t)
+    seeking (seeking a generated source renders every frame up to t).  Its pts
+    count frames, so `setpts=PTS+t/TB` truncates t to a whole frame: shift by a
+    frame count instead
 """
 from __future__ import annotations
 
+import math
 import os
 import subprocess
 import sys
@@ -65,18 +69,41 @@ class Source:
     def fps_float(self) -> float:
         return self.fps[0] / self.fps[1]
 
+    def first_frame(self, t: float) -> int:
+        """Index of the first frame whose timestamp, rounded to the ms, is at or after t.
+
+        Reported frame times are rounded to the ms (MKV stores whole ms too), so such a
+        time passed back as --at gives the same frame.
+        """
+        # the 1e-6 frame keeps a frame exactly half a ms before t despite float error
+        return max(0, math.ceil((t - 0.0005) * self.fps_float - 1e-6))
+
+    def frame_time(self, k: int) -> float:
+        """Timestamp of frame k; the ass filter renders the frame at this time."""
+        return k * self.fps[1] / self.fps[0]
+
     def input_args(self, t0: float, duration: float) -> tuple[list[str], str]:
-        """ffmpeg input arguments and a filter prefix that makes frame pts equal video time."""
+        """ffmpeg input arguments and a filter prefix for the frames in [t0, t0 + duration).
+
+        The first frame is first_frame(t0) and frame k keeps the pts frame_time(k) (a video
+        is taken to have a constant frame rate), so the ass filter renders each frame at
+        the time reported for it.
+        """
+        k0 = self.first_frame(t0)
+        n = max(1, self.first_frame(t0 + duration) - k0)
+        span = (n - 0.5) / self.fps_float     # n frames; the half frame keeps the next one out
         if self.video:
-            return ["-ss", f"{max(0.0, t0):.3f}", "-copyts", "-t", f"{duration:.3f}", "-i", str(self.video)], ""
+            # half a frame early still lands on frame k0 when pts are rounded; -t counts from k0
+            ss = max(0.0, (k0 - 0.5) / self.fps_float)
+            return ["-ss", f"{ss:.6f}", "-copyts", "-t", f"{span:.6f}", "-i", str(self.video)], ""
         w, h = self.size
         rate = f"{self.fps[0]}/{self.fps[1]}"
         if self.background == "checker":
-            src = (f"color=c=0x707070:s={w}x{h}:r={rate}:d={duration:.3f},"
+            src = (f"color=c=0x707070:s={w}x{h}:r={rate}:d={span:.6f},"
                    f"geq=lum='if(mod(floor(X/32)+floor(Y/32),2),150,100)':cb=128:cr=128")
         else:
-            src = f"color=c={self.background}:s={w}x{h}:r={rate}:d={duration:.3f}"
-        return ["-f", "lavfi", "-i", src], f"setpts=PTS+{t0:.3f}/TB,"
+            src = f"color=c={self.background}:s={w}x{h}:r={rate}:d={span:.6f}"
+        return ["-f", "lavfi", "-i", src], f"setpts=PTS+{k0},"
 
 
 def subtitle_filter(ass_path, font_dirs=None) -> str:
@@ -144,13 +171,18 @@ def frame(ass, t: float, out, source: Source, font_dirs=None, crop=None, width=N
 
 def sheet(ass, t0: float, t1: float, out, source: Source, font_dirs=None, step: float | None = None,
           fps: float | None = None, cols: int = 6, crop=None, width: int = 480, label=True) -> dict:
-    """Frames from t0 to t1 tiled into one image (single ffmpeg pass)."""
+    """Frames from t0 to t1 tiled into one image (single ffmpeg pass).
+
+    Each sample time shows the frame `frame` renders for it; "times" are the timestamps
+    of the frames shown.
+    """
     if step is None:
         step = 1.0 / fps if fps else max((t1 - t0) / 24, 1.0 / source.fps_float)
     n = max(1, int((t1 - t0) / step + 1e-6) + 1)
-    rows = (n + cols - 1) // cols
-    inp, prefix = source.input_args(t0, t1 - t0 + step)
-    times = [t0 + i * step for i in range(n)]
+    ks = sorted({source.first_frame(t0 + i * step) for i in range(n)})
+    rows = (len(ks) + cols - 1) // cols
+    inp, prefix = source.input_args(t0, source.frame_time(ks[-1] + 1) - t0)
+    times = [source.frame_time(k) for k in ks]
     half = 0.5 / source.fps_float
     sel = "+".join(f"between(t,{t - half:.4f},{t + half - 1e-4:.4f})" for t in times)
     chain = [prefix + f"select='{sel}'"]
