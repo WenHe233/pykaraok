@@ -4,7 +4,8 @@ Known pitfalls handled here (each cost time in earlier projects):
   * filter arguments: Windows drive colons and backslashes must be escaped
   * timestamps: `-ss` before `-i` plus `-copyts` keeps the original video time,
     so the ass filter renders the right moment
-  * fontsdir takes a single directory (see fonts.single_dir)
+  * fontsdir takes a single directory, and libass reads every file directly in
+    it (a video next to the fonts too) but none in subfolders (see fonts.single_dir)
   * yuv420p needs even crop/scale sizes
   * `-vsync` is gone in new ffmpeg builds; use -fps_mode
   * without a video, a lavfi colour source is shifted with setpts instead of

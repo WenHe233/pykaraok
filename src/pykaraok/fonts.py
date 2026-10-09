@@ -1,4 +1,7 @@
-"""Font directories: zip font packs, merging several dirs into one for libass."""
+"""Font directories: zip font packs, merging several dirs into one for libass.
+
+A font directory always means the font files directly in it (see font_files).
+"""
 from __future__ import annotations
 
 import hashlib
@@ -50,33 +53,53 @@ def resolve(font_args) -> list[Path]:
     return out
 
 
-def font_files(paths) -> list[Path]:
+def font_files(paths, exts=FONT_EXTS) -> list[Path]:
+    """Font files of --fonts entries: a file as given, a directory's top level only.
+
+    Subfolders are not searched: libass reads only the files directly in its
+    fontsdir, and measuring must see the same fonts as rendering.  Project
+    folders often keep whole font collections in subfolders.
+    """
     files = []
     for p in paths:
         p = Path(p)
-        if p.is_file() and p.suffix.lower() in FONT_EXTS:
+        if p.is_file() and p.suffix.lower() in exts:
             files.append(p)
         elif p.is_dir():
-            files += sorted(f for f in p.rglob("*") if f.suffix.lower() in FONT_EXTS)
+            files += sorted(f for f in p.iterdir() if f.suffix.lower() in exts and f.is_file())
     return files
 
 
 def single_dir(paths) -> Path | None:
-    """libass takes one fontsdir: return it, or a cached dir holding links/copies of all fonts."""
+    """libass takes one fontsdir and reads every file directly in it, videos included.
+
+    A lone directory holding nothing but font files is used as is; otherwise the
+    font_files are linked (or copied) into a cached directory.
+    """
     paths = [Path(p) for p in paths or []]
     if not paths:
         return None
-    if len(paths) == 1 and paths[0].is_dir():
+    if len(paths) == 1 and paths[0].is_dir() and \
+            all(f.suffix.lower() in FONT_EXTS and f.is_file() for f in paths[0].iterdir()):
         return paths[0]
     files = font_files(paths)
     out = config.cache_dir() / "fonts" / ("merged-" + _cache_key(files))
     if out.is_dir():
         return out
-    out.mkdir(parents=True, exist_ok=True)
+    # fill a temporary dir first so that an interrupted run leaves no partial dir behind
+    tmp = out.with_name(f"{out.name}.tmp{os.getpid()}")
+    shutil.rmtree(tmp, ignore_errors=True)
+    tmp.mkdir(parents=True)
     for i, f in enumerate(files):
-        dst = out / f"{i:04d}{f.suffix.lower()}"
+        dst = tmp / f"{i:04d}{f.suffix.lower()}"
         try:
             os.link(f, dst)
         except OSError:
             shutil.copy2(f, dst)
+    try:
+        tmp.rename(out)
+    except OSError:  # made by another process meanwhile, or a file in tmp is still open
+        if not out.is_dir():
+            return tmp
+        shutil.rmtree(tmp, ignore_errors=True)
     return out

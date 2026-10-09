@@ -5,8 +5,6 @@ import json
 import sys
 from pathlib import Path
 
-FONT_EXTS = (".ttf", ".otf", ".ttc", ".otc")
-
 
 def parse_time(s: str) -> float:
     """'83.4', '1:23.4' or '0:01:23.40' -> seconds."""
@@ -27,8 +25,12 @@ def parse_rects(s: str | None):
 
 
 def default_fonts(ass_path: Path, given) -> list[Path]:
-    """--fonts, else fonts and font-pack zips next to the .ass and next to its recorded video."""
-    from .fonts import resolve
+    """--fonts, else fonts and font-pack zips next to the .ass and next to its recorded video.
+
+    Only the top level of those folders counts (fonts.font_files): font collections
+    in subfolders are left alone.
+    """
+    from .fonts import font_files, resolve
     if given:
         return resolve(given)
     folders = [ass_path.resolve().parent]
@@ -40,7 +42,7 @@ def default_fonts(ass_path: Path, given) -> list[Path]:
         folders.append(video.resolve().parent)
     found = []
     for folder in folders:
-        if any(p.suffix.lower() in FONT_EXTS for p in folder.iterdir()):
+        if font_files([folder]):
             found.append(folder)
         for z in folder.glob("*.zip"):
             name = z.name.lower()
@@ -114,7 +116,8 @@ def register(sub, common, add_run_args, out, run_options):
         p.add_argument("--video", help="video to draw on (default: the Video File recorded in the .ass)")
         p.add_argument("--no-video", action="store_true", help="draw on a plain background")
         p.add_argument("--bg", default="gray", help="background colour without video (gray, black, checker, #RRGGBB)")
-        p.add_argument("--fonts", action="append", help="font dir, font file or zip font pack (default: the .ass folder)")
+        p.add_argument("--fonts", action="append", help="font dir (top level only), font file or zip font pack "
+                                                        "(default: the .ass folder)")
         p.add_argument("-o", "--output")
         if with_range:
             p.add_argument("--from", dest="start")

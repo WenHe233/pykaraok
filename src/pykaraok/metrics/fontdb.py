@@ -13,7 +13,7 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
-FONT_EXTS = (".ttf", ".otf", ".ttc", ".otc")
+from ..fonts import FONT_EXTS, font_files
 
 
 @dataclass
@@ -59,9 +59,16 @@ class FontIndex:
         self._system_loaded = False
         self._include_system = include_system
 
-    def add_path(self, path: Path):
+    def add_path(self, path: Path, recursive: bool = False):
+        """A font file, or the font files directly in a folder (fonts.font_files).
+        recursive is for the system font folders, which are trees on Linux and macOS."""
         path = Path(path)
-        files = [path] if path.is_file() else sorted(p for p in path.rglob("*") if p.suffix.lower() in FONT_EXTS)
+        if path.is_file():
+            files = [path]
+        elif recursive:
+            files = sorted(p for p in path.rglob("*") if p.suffix.lower() in FONT_EXTS)
+        else:
+            files = font_files([path])
         for f in files:
             self._add_file(f)
 
@@ -104,7 +111,7 @@ class FontIndex:
         if not self._system_loaded and self._include_system:
             self._system_loaded = True
             for d in system_font_dirs():
-                self.add_path(d)
+                self.add_path(d, recursive=True)
 
     def find(self, name: str, bold: bool = False, italic: bool = False, system: bool = True) -> FontFace | None:
         cands = self._by_name.get(name.strip().lower())

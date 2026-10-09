@@ -12,6 +12,8 @@ import sys
 from ctypes import wintypes
 from pathlib import Path
 
+from ..fonts import font_files
+
 if sys.platform != "win32":  # pragma: no cover
     raise ImportError("GDI metrics are only available on Windows")
 
@@ -80,12 +82,13 @@ def load_font_file(path: str | Path) -> bool:
 
 
 def load_font_dir(folder: str | Path) -> int:
+    """Load a font file, or the font files directly in a folder (not subfolders, like libass)."""
     n = 0
     folder = Path(folder)
     if folder.is_file():
         return int(load_font_file(folder))
-    for p in sorted(folder.rglob("*")):
-        if p.suffix.lower() in FONT_EXTS and load_font_file(p):
+    for p in font_files([folder], FONT_EXTS):
+        if load_font_file(p):
             n += 1
     return n
 

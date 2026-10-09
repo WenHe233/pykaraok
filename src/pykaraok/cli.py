@@ -59,8 +59,9 @@ def _run_options(args):
 
 
 def _add_run_args(p):
-    p.add_argument("--fonts", action="append", help="font dir, font file or zip font pack (repeatable; default: "
-                                                    "fonts next to the input file); loaded privately for measuring")
+    p.add_argument("--fonts", action="append", help="font dir (top level only), font file or zip font pack "
+                                                    "(repeatable; default: fonts next to the input file); "
+                                                    "loaded privately for measuring")
     p.add_argument("--include", action="append", help="extra Lua include dir (repeatable)")
     p.add_argument("--metrics", default="auto", choices=["auto", "gdi", "fonttools"],
                    help="text_extents backend (auto = GDI on Windows, like Aegisub)")
