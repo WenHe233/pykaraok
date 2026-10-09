@@ -15,4 +15,4 @@
 
 另外两个比较工具：
 - `pykaraok diff A B` 比较两份文件的 fx 行。`time_round` 是 10 ms 以内的取整差异，`extradata` 是 `{=N}` 折叠标记的差异，`numeric` 是数字差异（会报告最大差值）。
-- `pykaraok render vsf X.ass --at T`：用户的 Aegisub 预览器可能是 xy-VSFilter，交付只保证 libass，但可以先看一眼 VSFilter 下有没有明显问题，有就在说明里提一句。
+- `pykaraok render vsf X.ass --at T`：用户的 Aegisub 预览器可能是 xy-VSFilter，交付只保证 libass，但可以先看一眼 VSFilter 下有没有明显问题，有就在说明里提一句。它和 `render frame --at T` 取同一帧、按同一时间渲染，两张图可以直接对比。

@@ -66,7 +66,7 @@ build、apply、run-macro 共用的选项：
 - `--bg gray|black|checker|#RRGGBB`：没有视频时的背景。
 - `--fonts`、`-o`。
 
-时间 T 取 T 或之后的第一帧，帧的时间戳先四舍五入到毫秒再比较。`render sheet` 按同样的规则给每个取样时间取帧，输出的 `times` 是这些帧的时间戳。
+时间 T 取 T 或之后的第一帧，帧的时间戳先四舍五入到毫秒再比较。字幕按这一帧的时间戳渲染，`render vsf` 也一样。`render sheet` 按同样的规则给每个取样时间取帧，输出的 `times` 是这些帧的时间戳。
 
 ## 其它
 

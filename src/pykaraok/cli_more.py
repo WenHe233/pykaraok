@@ -283,9 +283,9 @@ def cmd_preview(args, out):
 def cmd_vsf(args, out):
     from .render import vsfilter
     ass = Path(args.ass)
-    src, video = _source(args, ass)
+    src, _ = _source(args, ass)
     o = _out_path(args, ass, "vsf.png")
-    vsfilter.frame(ass, parse_time(args.at), o, video, src.size, default_fonts(ass, args.fonts))
+    vsfilter.frame(ass, parse_time(args.at), o, src, default_fonts(ass, args.fonts))
     out(args, {"output": str(o), "dll": str(vsfilter.find_dll())}, str(o))
     return 0
 

@@ -1,11 +1,13 @@
 """Frame times reported by stream_frames (check --jumps) and render sheet are the times libass
 rendered, and `render frame --at` with such a time shows the same frame, with or without a video.
+`render vsf --at` renders the same frame at the same time with VSFilter.
 
 Frame k is the k-th frame of the frame rate's grid (k * 1001/24000 s at 23.976 fps); a time
 means the first frame at or after it.
 """
 import shutil
 import subprocess
+import sys
 
 import numpy as np
 import pytest
@@ -14,8 +16,11 @@ from PIL import Image
 from pykaraok.cli import main
 from pykaraok.qa.frames import stream_frames
 from pykaraok.render import ffmpeg as rf
+from pykaraok.render import vsfilter
 
 needs_ffmpeg = pytest.mark.skipif(not shutil.which("ffmpeg"), reason="needs ffmpeg")
+needs_vsfilter = pytest.mark.skipif(sys.platform != "win32" or vsfilter.find_dll() is None,
+                                    reason="needs Windows and VSFilter.dll (PYKARAOK_VSFILTER)")
 
 HEADER = """[Script Info]
 ScriptType: v4.00+
@@ -48,6 +53,19 @@ def black_video(tmp_path_factory):
     out = tmp_path_factory.mktemp("video") / "black.mkv"
     subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-f", "lavfi",
                     "-i", "color=black:s=640x360:r=24000/1001:d=4", "-c:v", "ffv1", str(out)], check=True)
+    return out
+
+
+@pytest.fixture(scope="module")
+def bar_video(tmp_path_factory):
+    """Like black_video, but frame n shows a white bar at x = 10n along the bottom (y >= 320)."""
+    frames = np.zeros((48, 360, 640), np.uint8)
+    for n in range(48):
+        frames[n, 320:, 10 * n:10 * n + 10] = 255
+    out = tmp_path_factory.mktemp("video") / "bar.mkv"
+    subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "gray",
+                    "-s", "640x360", "-r", "24000/1001", "-i", "-", "-c:v", "ffv1", "-pix_fmt", "yuv420p", str(out)],
+                   input=frames.tobytes(), check=True)
     return out
 
 
@@ -123,3 +141,45 @@ def test_sheet_times_are_frame_times(tmp_path, black_video, video):
     for i, t in enumerate(info["times"]):
         tile = img[:, i * 322:i * 322 + 320]
         assert abs(_left(tile) - 0.15 * t * 1000) < 1.5, t
+
+
+@needs_ffmpeg
+@needs_vsfilter
+@pytest.mark.parametrize("video", [False, True], ids=["colour", "video"])
+def test_vsf_renders_the_moment_render_frame_renders(tmp_path, bar_video, video):
+    """`render vsf --at T` shows the video frame `render frame --at T` shows (the bar), with the
+    subtitles (the box) at that frame's time.
+
+    Before, VSFilter drew the subtitles at T itself: 0.46 s came out 12 px behind libass (460 ms
+    instead of frame 12 at 500.5 ms).  The video frame came from -ss with T rounded to ms, so
+    0.5012 s took frame 12 (501 ms in MKV) instead of frame 13.
+    """
+    ass = _ass(tmp_path, 640, 360, MOVE)
+    src = rf.Source.make(bar_video) if video else rf.Source(None, "black", (640, 360))
+    where = ["--video", str(bar_video)] if video else ["--no-video", "--bg", "black"]
+    lib, vsf = tmp_path / "lib.png", tmp_path / "vsf.png"
+    for at in (0.46, 0.48, 0.5012, 1.001):
+        assert main(["render", "frame", str(ass), "--at", str(at), "--width", "0", "-o", str(lib)] + where) == 0
+        assert main(["render", "vsf", str(ass), "--at", str(at), "-o", str(vsf)] + where) == 0
+        a = np.asarray(Image.open(lib).convert("RGB"))
+        b = np.asarray(Image.open(vsf).convert("RGB"))
+        k = src.first_frame(at)
+        assert abs(_left(b[:100]) - 0.3 * src.frame_time(k) * 1000) < 1.5, at
+        assert abs(_left(b[:100]) - _left(a[:100])) <= 1, at
+        if video:
+            assert _left(b[320:]) == _left(a[320:]) == 10 * k, at
+
+
+@needs_vsfilter
+def test_vsf_frame_on_a_whole_ms(tmp_path):
+    """Frame 24 at 23.976 fps is at 1001 ms exactly, and VSFilter renders it at 1001 ms.
+
+    k * 1001/24000 in floating point is a hair under 1.001 s; passed as is, VSFilter
+    truncates it to 1000 ms.
+    """
+    # 8 px per ms from 951 ms: the left edge is at 400 px at 1001 ms, 392 px at 1000 ms
+    ass = _ass(tmp_path, 640, 360, "Dialogue: 0,0:00:00.00,0:00:05.00,Default,,0,0,0,,"
+               "{\\an7\\move(0,0,800,0,951,1051)\\p1}m 0 0 l 40 0 l 40 40 l 0 40\n")
+    out = tmp_path / "vsf.png"
+    assert main(["render", "vsf", str(ass), "--at", "1.001", "--no-video", "-o", str(out)]) == 0
+    assert _left(Image.open(out).convert("RGB")) == 400

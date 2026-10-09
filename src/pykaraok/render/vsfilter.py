@@ -13,6 +13,7 @@ import subprocess
 from pathlib import Path
 
 from .. import config
+from . import ffmpeg as rf
 
 CSRI_F_BGR_ = 0x102
 
@@ -36,7 +37,13 @@ def find_dll() -> Path | None:
     return None
 
 
-def frame(ass, t: float, out, video, size: tuple[int, int], font_dirs=()) -> Path:
+def frame(ass, t: float, out, source: rf.Source, font_dirs=()) -> Path:
+    """Render the frame ffmpeg.frame renders for time t, with VSFilter instead of libass.
+
+    That is the first frame at or after t (Source.first_frame), with the subtitles at
+    its timestamp, so the two images show the same moment.  Without a video the
+    background is plain gray.
+    """
     dll_path = find_dll()
     if not dll_path:
         raise RuntimeError("VSFilter.dll not found; set PYKARAOK_VSFILTER")
@@ -44,7 +51,8 @@ def frame(ass, t: float, out, video, size: tuple[int, int], font_dirs=()) -> Pat
         from ..metrics.gdi import load_font_dir
         for d in font_dirs:
             load_font_dir(d)
-    w, h = size
+    w, h = source.size
+    ft = source.frame_time(source.first_frame(t))
     dll = ctypes.CDLL(str(dll_path))
     dll.csri_renderer_default.restype = ctypes.c_void_p
     dll.csri_open_file.restype = ctypes.c_void_p
@@ -59,10 +67,13 @@ def frame(ass, t: float, out, video, size: tuple[int, int], font_dirs=()) -> Pat
         fmt = _Fmt(CSRI_F_BGR_, w, h)
         if dll.csri_request_fmt(inst, ctypes.byref(fmt)) != 0:
             raise RuntimeError("csri_request_fmt failed")
-        if video:
-            raw = subprocess.run([config.ffmpeg(), "-hide_banner", "-loglevel", "error", "-ss", f"{t:.3f}",
-                                  "-i", str(video), "-frames:v", "1", "-vf", f"scale={w}:{h}",
-                                  "-f", "rawvideo", "-pix_fmt", "bgr0", "-"], capture_output=True, check=True).stdout
+        if source.video:
+            inp, _ = source.input_args(t, 2 / source.fps_float)     # the seek ffmpeg.frame uses
+            raw = subprocess.run([config.ffmpeg(), "-hide_banner", "-loglevel", "error"] + inp +
+                                 ["-frames:v", "1", "-vf", f"scale={w}:{h}", "-f", "rawvideo", "-pix_fmt", "bgr0", "-"],
+                                 capture_output=True, check=True).stdout
+            if len(raw) != w * h * 4:
+                raise RuntimeError(f"no video frame at {ft:.3f}s")
         else:
             raw = bytes([0x60, 0x60, 0x60, 0]) * (w * h)
         buf = (ctypes.c_ubyte * len(raw)).from_buffer_copy(raw)
@@ -70,7 +81,9 @@ def frame(ass, t: float, out, video, size: tuple[int, int], font_dirs=()) -> Pat
         fr.pixfmt = CSRI_F_BGR_
         fr.planes[0] = ctypes.addressof(buf)
         fr.strides[0] = w * 4
-        dll.csri_render(inst, ctypes.byref(fr), ctypes.c_double(t))
+        # VSFilter truncates the time to whole ms, and a frame time on a whole ms can fall a hair
+        # below it in floating point (frame 24 at 23.976 fps, 1.001 s, rendered at 1000 ms): add 50 ns
+        dll.csri_render(inst, ctypes.byref(fr), ctypes.c_double(ft + 5e-8))
         from PIL import Image
         Image.frombuffer("RGBX", (w, h), bytes(buf), "raw", "BGRX", 0, 1).convert("RGB").save(out)
     finally:
