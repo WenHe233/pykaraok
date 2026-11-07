@@ -88,7 +88,8 @@ def parse(text: str, path: Path | None = None) -> Source:
             src.blocks.append(cur)
         cur, body = None, []
 
-    for no, ln in enumerate(text.splitlines(), 1):
+    # not str.splitlines(): it also breaks at U+2028, form feed and others, which template text can contain
+    for no, ln in enumerate(text.replace("\r\n", "\n").split("\n"), 1):
         m = _DIRECTIVE.match(ln)
         if m and m.group(1) in KINDS:
             kind, rest = m.group(1), m.group(2)
@@ -136,13 +137,14 @@ def block_text(b: Block, keep_comments: bool = True) -> str:
         except FlattenError as exc:
             raise FlattenError(f"block at line {b.line}: {exc}") from None
     if b.kind in ("template", "mixin"):
+        # only ASCII blanks are indentation: a full-width space is template text
         parts = []
-        for ln in b.body.splitlines():
-            s = ln.strip()
+        for ln in b.body.split("\n"):
+            s = ln.strip(" \t\r")
             if not s or s.startswith("--"):
                 continue
-            parts.append(ln.lstrip())
-        return "".join(p.rstrip("\r") for p in parts)
+            parts.append(ln.lstrip(" \t").rstrip("\r"))
+        return "".join(parts)
     return " ".join(b.body.split())
 
 

@@ -43,6 +43,15 @@ def test_source_parse():
     assert srcmod.block_text(tpl) == "{\\an5\\pos($scenter,$smiddle)}"
 
 
+def test_source_keeps_unicode_separators_and_wide_spaces():
+    # str.splitlines() broke the line at U+2028, which is an error inside a Lua string
+    s = srcmod.parse("--@code once\nS = 'a b'\n--@template syl\n  　{\\pos(1,1)}a b\n  c\n")
+    code, tpl = s.blocks
+    assert srcmod.block_text(code) == "S = 'a b'"
+    assert check_syntax(srcmod.block_text(code)) is None
+    assert srcmod.block_text(tpl) == "　{\\pos(1,1)}a bc"
+
+
 def test_all_fxlib_modules_compile():
     for p in config.FXLIB_DIR.glob("*.lua"):
         for b in srcmod.load(p).blocks:

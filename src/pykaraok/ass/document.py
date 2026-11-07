@@ -199,9 +199,8 @@ class AssDocument:
         text = data.decode("utf-8")
         doc.newline = "\r\n" if "\r\n" in text else "\n"
         doc.trailing_newline = text.endswith("\n")
-        lines = text.splitlines()
         cur: Section | None = None
-        for ln in lines:
+        for ln in _split_lines(text):
             s = ln.strip()
             if s.startswith("[") and s.endswith("]") and not (cur and cur.key in ("fonts", "graphics") and _looks_like_attachment(s)):
                 cur = Section(s[1:-1], ln)
@@ -455,6 +454,18 @@ class AssDocument:
 
 _KNOWN_SECTIONS = {"script info", "v4+ styles", "v4 styles", "events", "fonts", "graphics",
                    "aegisub project garbage", "aegisub extradata"}
+
+
+def _split_lines(text: str) -> list[str]:
+    """libaegisub/common/line_iterator.cpp: only LF ends a line, one CR before it is dropped.
+
+    str.splitlines() also breaks at U+2028, NEL, form feed and others, which a lyric line can
+    contain: what follows them would be lost.
+    """
+    lines = text.split("\n")
+    if lines[-1] == "":     # the text is empty or ends with a newline
+        lines.pop()
+    return [ln[:-1] if ln.endswith("\r") else ln for ln in lines]
 
 
 def _looks_like_attachment(s: str) -> bool:
