@@ -244,12 +244,15 @@ def check_fonts(doc: AssDocument, font_dirs=()) -> list[dict]:
 
 # ---------------------------------------------------------------- reapply
 
-def check_reapply(doc: AssDocument, path, options=None, engine: str = "stock") -> list[dict]:
+def check_reapply(doc: AssDocument, path, options=None, engine: str | None = None) -> list[dict]:
     """Applying the templates again must reproduce the file (what users get when they press Apply in Aegisub)."""
     from ..aegi.templater import apply_templates
     from .compare import compare_docs
     again = AssDocument.load(path)
-    res = apply_templates(again, engine, options)
+    try:
+        res = apply_templates(again, engine, options)
+    except FileNotFoundError as exc:    # the engine is not installed; the other checks still count
+        return [_f("reapply", "error", str(exc))]
     if not res.ok:
         return [_f("reapply", "error", f"re-applying the templates failed: {res.message[:400]}")]
     rep = compare_docs(doc, again)
@@ -263,7 +266,7 @@ def check_reapply(doc: AssDocument, path, options=None, engine: str = "stock") -
                "(random values not seeded from line data, or fonts differ)", **rep.to_dict())]
 
 
-def run_static(path, font_dirs=(), reapply: bool = False, options=None, engine: str = "stock") -> list[dict]:
+def run_static(path, font_dirs=(), reapply: bool = False, options=None, engine: str | None = None) -> list[dict]:
     doc = AssDocument.load(path)
     findings = []
     findings += check_stats(doc, path)

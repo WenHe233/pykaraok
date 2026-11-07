@@ -2,6 +2,8 @@
 
 先执行 `pykaraok setup 0x539`。完整文档在作者仓库的 doc/0x.KaraTemplater.md。下面只列与 stock 模板器不同的地方。
 
+`build` 按 `--@meta engine=0x539` 或 `--engine` 选择引擎。`apply` 和 `check --reapply` 看到 `kara` 行或 `mixin` 行时自动用这个引擎；文件里只有 `karaoke` 行又没有 mixin 时，要加 `--engine 0x539`。
+
 ## 输入
 
 - 只处理 Effect 为 `kara`（或 `karaoke`）的行，不会自动接管 Effect 为空的行。build 会把歌词样式的行标成 `kara`。

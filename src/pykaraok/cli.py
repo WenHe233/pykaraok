@@ -208,7 +208,7 @@ def main(argv=None) -> int:
     p.add_argument("input")
     p.add_argument("-o", "--output")
     p.add_argument("--in-place", action="store_true")
-    p.add_argument("--engine", default="stock", choices=["stock", "0x539"])
+    p.add_argument("--engine", choices=["stock", "0x539"], help="default: 0x539 if the file has kara or mixin lines, else stock")
     p.add_argument("--keep-furigana-styles", action="store_true",
                    help="keep the unused <style>-furigana styles karaskel generates (Aegisub keeps them)")
     _add_run_args(p)

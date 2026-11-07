@@ -26,7 +26,7 @@ render 不给 `-o` 时，输出写到**当前目录**，文件名为 `<输入文
 | 命令 | 作用 |
 |---|---|
 | `pykaraok build SRC.fx.lua --lyrics L.ass -o OUT.ass` | 模板源文件加歌词，得到单文件特效并套用。`--engine stock\|0x539`、`--styles A,B`（歌词样式）、`--k keep\|line\|char`、`--no-apply`、`--strip-comments` |
-| `pykaraok apply IN.ass -o OUT.ass` | 对已经含模板的文件执行 “Apply karaoke template”。`--in-place` 覆盖原文件 |
+| `pykaraok apply IN.ass -o OUT.ass` | 对已经含模板的文件执行 “Apply karaoke template”。`--in-place` 覆盖原文件。`--engine stock\|0x539` 默认按文件判断：有 `kara` 行或 `mixin` 行时用 0x539，否则用 stock |
 | `pykaraok extract X.ass -o SRC.fx.lua` | 把文件里的模板、代码、说明行导出成源文件 |
 | `pykaraok fxlib [模块]` | 列出 fxlib 模块，或打印某个模块的源码 |
 | `pykaraok run-macro SCRIPT.lua\|.moon IN.ass -o OUT.ass [--macro 名称] [--list]` | 无界面运行任意 Automation 4 宏。`--selected 1,2,3`、`--dialog '{"button":"OK","values":{...}}'` |
@@ -44,7 +44,7 @@ build、apply、run-macro 共用的选项：
 
 | 命令 | 作用 |
 |---|---|
-| `pykaraok check X.ass` | 静态检查。加 `--reapply` 检查重套一致性；加 `--jumps`、`--perf` 做出图检查（`--from`/`--to` 限定区间）；加 `--original O.ass --steady [--diff-dir D]` 做稳态逐像素对比 |
+| `pykaraok check X.ass` | 静态检查。加 `--reapply` 检查重套一致性（引擎的选择同 apply）；加 `--jumps`、`--perf` 做出图检查（`--from`/`--to` 限定区间）；加 `--original O.ass --steady [--diff-dir D]` 做稳态逐像素对比 |
 | `pykaraok diff A.ass B.ass [--all] [--effect fx]` | 比较两份文件的事件，差异分为 identical、time_round、extradata、numeric、structural 几类 |
 | `pykaraok fonts check X.ass` | 列出用到的字体，以及每个字体缺哪些字 |
 | `pykaraok fonts unpack 字体包.zip` | 解压字体包到缓存，打印目录 |

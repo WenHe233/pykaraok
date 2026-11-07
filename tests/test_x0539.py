@@ -4,6 +4,7 @@ import pytest
 
 from pykaraok import config
 from pykaraok.aegi.runtime import RunOptions
+from pykaraok.aegi.templater import apply_templates
 from pykaraok.ass.document import AssDocument
 from pykaraok.build.project import build
 
@@ -36,6 +37,17 @@ def test_0x539_template(data_dir, tmp_path):
     assert re.search(r"\\pos\([\d.]+,[\d.]+\)", spark["text"])
     # input lines are marked kara for this engine
     assert sum(1 for e in doc.events if e["effect"] == "kara") == 4
+
+
+def test_built_file_is_reapplied_with_its_engine(data_dir, tmp_path):
+    out = tmp_path / "x.ass"
+    build(data_dir / "x0539.fx.lua", data_dir / "lyrics.ass", out, lyric_styles=["JP", "CN"],
+          run_options=RunOptions(seed=7))
+    doc = AssDocument.load(out)
+    res = apply_templates(doc, options=RunOptions(seed=7))
+    assert res.ok and res.engine == "0x539", res.message
+    fx = [e["text"] for e in doc.events if e["effect"] == "fx"]
+    assert fx == [e["text"] for e in AssDocument.load(out).events if e["effect"] == "fx"]
 
 
 def test_0x539_seeded_runs_are_identical(data_dir, tmp_path):

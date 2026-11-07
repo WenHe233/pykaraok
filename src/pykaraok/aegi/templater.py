@@ -50,6 +50,19 @@ def _engine_script(engine: str) -> tuple[Path, str]:
     raise ValueError(f"unknown engine {engine!r} (stock | 0x539)")
 
 
+def detect_engine(doc: AssDocument) -> str:
+    """0x539 for a file with `kara` input lines (what build writes for that engine) or mixin lines.
+
+    The stock templater ignores those lines and deletes the fx lines, so running it on such
+    a file would leave nothing.
+    """
+    for e in doc.events:
+        effect = e["effect"].strip().lower()
+        if effect == "kara" or effect.split(" ")[0] == "mixin":
+            return "0x539"
+    return "stock"
+
+
 def event_stats(doc: AssDocument) -> dict:
     ev = doc.events
     fx = [e for e in ev if e["effect"] == "fx"]
@@ -75,14 +88,17 @@ def drop_generated_furigana_styles(doc: AssDocument, before: set[str]) -> list[s
     return drop
 
 
-def apply_templates(doc: AssDocument, engine: str = "stock", options: RunOptions | None = None,
+def apply_templates(doc: AssDocument, engine: str | None = None, options: RunOptions | None = None,
                     require_menu_check: bool = False, keep_furigana_styles: bool = False) -> ApplyResult:
     """Run the templater on `doc` in place. The document is changed only when the run succeeds.
+
+    engine: stock | 0x539; by default the one the file is for (detect_engine).
 
     Unless keep_furigana_styles, the "-furigana" styles karaskel generates are removed again when
     no line uses them (Aegisub keeps them; they would only add style lines to the deliverable).
     """
     t0 = time.perf_counter()
+    engine = engine or detect_engine(doc)
     styles_before = {s["name"] for s in doc.styles}
     script, macro = _engine_script(engine)
     rt = AegiRuntime(doc, options, script_path=doc.path)
@@ -118,7 +134,7 @@ def apply_templates(doc: AssDocument, engine: str = "stock", options: RunOptions
     return res
 
 
-def apply_file(src: str | Path, dst: str | Path, engine: str = "stock",
+def apply_file(src: str | Path, dst: str | Path, engine: str | None = None,
                options: RunOptions | None = None, keep_furigana_styles: bool = False) -> ApplyResult:
     doc = AssDocument.load(src)
     res = apply_templates(doc, engine, options, keep_furigana_styles=keep_furigana_styles)

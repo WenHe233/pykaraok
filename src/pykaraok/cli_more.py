@@ -183,7 +183,8 @@ def register(sub, common, add_run_args, out, run_options):
     p.add_argument("ass")
     p.add_argument("--fonts", action="append")
     p.add_argument("--reapply", action="store_true", help="re-apply the templates and require identical output")
-    p.add_argument("--engine", default="stock", choices=["stock", "0x539"])
+    p.add_argument("--engine", choices=["stock", "0x539"],
+                   help="--reapply: default 0x539 if the file has kara or mixin lines, else stock")
     p.add_argument("--video", help="video for render-based checks (default: the Video File recorded in the .ass)")
     p.add_argument("--no-video", action="store_true", help="render-based checks on a plain background")
     p.add_argument("--bg", default="gray", help="background colour without video")

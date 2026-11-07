@@ -1,10 +1,13 @@
+import json
 import re
 
 import pytest
 
 from pykaraok.aegi.runtime import AegiRuntime, RunOptions
-from pykaraok.aegi.templater import apply_templates
+from pykaraok.aegi.templater import apply_templates, detect_engine
 from pykaraok.ass.document import AssDocument, format_event
+from pykaraok.build.project import build
+from pykaraok.cli import main
 
 
 def load(data_dir, name="basic.ass"):
@@ -60,6 +63,44 @@ def test_fifty_line_rule(data_dir):
     assert res.ok
     assert res.can_template is False
     assert any("50" in w for w in res.warnings)
+
+
+def _x0539_file(tmp_path, data_dir):
+    """Built for the 0x539 engine: kara lines, and an fx line that the stock templater would delete."""
+    path = tmp_path / "x.ass"
+    build(data_dir / "x0539.fx.lua", data_dir / "lyrics.ass", path, lyric_styles=["JP", "CN"], apply=False)
+    text = path.read_text(encoding="utf-8") + "Dialogue: 2,0:00:01.00,0:00:02.00,JP,,0,0,0,fx,{\\pos(1,1)}spark\n"
+    path.write_text(text, encoding="utf-8", newline="\n")
+    return path
+
+
+def test_engine_is_detected_from_the_file(data_dir, tmp_path):
+    doc = load(data_dir)
+    assert detect_engine(doc) == "stock"
+    assert detect_engine(AssDocument.load(_x0539_file(tmp_path, data_dir))) == "0x539"
+    doc.events[0]["effect"] = "mixin char"
+    assert detect_engine(doc) == "0x539"
+
+
+def test_apply_does_not_run_stock_on_a_0x539_file(data_dir, tmp_path, monkeypatch, capsys):
+    """It used to delete every fx line and report ok."""
+    monkeypatch.setenv("PYKARAOK_CACHE", str(tmp_path / "no_0x539_here"))
+    src, out = _x0539_file(tmp_path, data_dir), tmp_path / "out.ass"
+    assert main(["apply", str(src), "-o", str(out)]) == 1
+    assert "setup 0x539" in capsys.readouterr().err
+    assert not out.exists()
+    # the choice is still the user's
+    assert main(["apply", str(src), "-o", str(out), "--engine", "stock"]) == 0
+    assert not [e for e in AssDocument.load(out).events if e["effect"] == "fx"]
+
+
+def test_check_reapply_reports_a_missing_engine(data_dir, tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("PYKARAOK_CACHE", str(tmp_path / "no_0x539_here"))
+    assert main(["check", str(_x0539_file(tmp_path, data_dir)), "--reapply", "--json"]) == 1
+    findings = json.loads(capsys.readouterr().out)["findings"]
+    reapply = [f for f in findings if f["check"] == "reapply"]
+    assert reapply[0]["level"] == "error" and "setup 0x539" in reapply[0]["message"]
+    assert any(f["check"] == "stats" for f in findings)     # the other checks still ran
 
 
 def test_script_error_is_reported(data_dir):
