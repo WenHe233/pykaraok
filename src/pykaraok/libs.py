@@ -134,9 +134,8 @@ def install_from_dir(source: Path, dest: Path, log=print) -> list[str]:
 
 
 def setup(source: str | None = None, extras: list[str] | None = None, log=print) -> dict:
-    from .aegi.moon import download_moonc, find_moonc
-    if not find_moonc():
-        download_moonc(log)
+    from .aegi.moon import ensure_moonc
+    ensure_moonc(log)
     dest = config.libs_dir()
     if source:
         return {"copied": install_from_dir(Path(source), dest, log)}

@@ -172,6 +172,8 @@ def cmd_doctor(args) -> int:
     info["ffmpeg"] = config.find_tool("ffmpeg", "PYKARAOK_FFMPEG")
     info["ffprobe"] = config.find_tool("ffprobe", "PYKARAOK_FFPROBE")
     info["moonc"] = moon.find_moonc()
+    if info["moonc"] and not moon.runs(info["moonc"]):
+        info["moonc"] += " (does not run; `pykaraok setup moonc` replaces it)"
     info["cache_dir"] = str(config.cache_dir())
     info["include_dirs"] = [str(p) for p in config.default_include_dirs()]
     info["aegisub_installs"] = [str(p) for p in config.known_aegisub_automation_dirs()]
@@ -198,7 +200,7 @@ def cmd_setup(args) -> int:
     what = args.what
     result = {}
     if what in ("moonc", "all"):
-        result["moonc"] = moon.find_moonc() or moon.download_moonc(log=lambda m: print(m, file=sys.stderr))
+        result["moonc"] = moon.ensure_moonc(log=lambda m: print(m, file=sys.stderr))
     if what in ("0x539", "all"):
         from .aegi import x0539
         result["0x539"] = x0539.setup(ref=args.ref, log=lambda m: print(m, file=sys.stderr))

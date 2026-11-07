@@ -18,7 +18,7 @@ render 不给 `-o` 时，输出写到**当前目录**，文件名为 `<输入文
 |---|---|
 | `pykaraok doctor` | 依赖、ffmpeg、moonc、缓存、0x539、各 Lua 库的状态 |
 | `pykaraok paths` | 仓库、examples、skill、fxlib、vendor、缓存的位置 |
-| `pykaraok setup moonc\|0x539\|libs\|all` | 下载 moonc；下载并编译 0x539 模板器、0x.color、karaOK；安装 ILL、clipper2、requireffi。`setup libs --source DIR` 改为从本地 automation/include 目录拷贝 |
+| `pykaraok setup moonc\|0x539\|libs\|all` | 下载 moonc（已有的能运行就不下载，跑不起来的会替换）；下载并编译 0x539 模板器、0x.color、karaOK；安装 ILL、clipper2、requireffi。`setup libs --source DIR` 改为从本地 automation/include 目录拷贝 |
 | `pykaraok skill install [--target DIR] [--copy]` | 把本 skill 链接到 ~/.claude/skills 和 ~/.agents/skills |
 
 ## 构建与套用

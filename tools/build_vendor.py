@@ -24,8 +24,7 @@ HEADER = "-- Compiled from {src} by moonc {ver} (tools/build_vendor.py). Do not 
 
 
 def main() -> int:
-    if not moon.find_moonc():
-        moon.download_moonc()
+    moon.ensure_moonc()
     n = 0
     for src in sorted(SRC.rglob("*.moon")):
         rel = src.relative_to(SRC).with_suffix(".lua")

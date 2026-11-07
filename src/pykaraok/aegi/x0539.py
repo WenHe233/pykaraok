@@ -51,9 +51,8 @@ def status() -> dict:
 
 
 def setup(ref: str | None = None, log=print) -> dict:
-    from .moon import compile_file, download_moonc, find_moonc
-    if not find_moonc():
-        download_moonc(log)
+    from .moon import compile_file, ensure_moonc
+    ensure_moonc(log)
     done = {}
     for name, (repo, commit, path, dest) in SOURCES.items():
         use = ref if (ref and repo.startswith("The0x539")) else commit
