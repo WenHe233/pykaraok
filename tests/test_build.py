@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 import pytest
@@ -50,6 +51,19 @@ def test_source_keeps_unicode_separators_and_wide_spaces():
     assert srcmod.block_text(code) == "S = 'a b'"
     assert check_syntax(srcmod.block_text(code)) is None
     assert srcmod.block_text(tpl) == "　{\\pos(1,1)}a bc"
+
+
+def test_format_reference_example_builds(data_dir, tmp_path):
+    """The example in source-format.md must work as written: it gets copied."""
+    doc = (ROOT / "skill" / "pykaraok" / "references" / "source-format.md").read_text(encoding="utf-8")
+    src = tmp_path / "example.fx.lua"
+    src.write_text(re.search(r"```lua\n(.*?)```", doc, re.S).group(1), encoding="utf-8")
+    build(src, data_dir / "lyrics.ass", tmp_path / "o.ass", k_mode="line", apply=False)
+    generated = [e for e in AssDocument.load(tmp_path / "o.ass").events
+                 if e["comment"] and e["effect"].split(" ")[0] in ("code", "template", "mixin", "note")]
+    assert not [e for e in generated if "--" in e["effect"] or "--" in e["actor"]]
+    assert {"配置", "本体"} <= {e["actor"] for e in generated}
+    assert {"template syl noblank", "mixin char", "note"} <= {e["effect"] for e in generated}
 
 
 def test_all_fxlib_modules_compile():

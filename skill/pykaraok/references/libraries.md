@@ -23,6 +23,8 @@ pykaraok draw text "気" --font "方正达利体简繁 Heavy" --size 55 --json
 pykaraok draw compose --font F --size 55 --part 气 --part '汽@0.45,0.3,1,1+-0.2,0'
 ```
 
+`draw compose` 和 `shapely_to_ass` 需要可选依赖：在 pykaraok 仓库目录执行 `pip install -e ".[draw]"`。
+
 Python API：
 - `pykaraok.draw.glyphs.text_drawing`
 - `pykaraok.draw.compose.compose`、`path_to_ass`

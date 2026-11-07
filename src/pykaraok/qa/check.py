@@ -1,8 +1,8 @@
 """Static checks for effect subtitle files.
 
 Each check returns findings: {"check", "level" (error|warn|info), "message", ...data}.
-Render-based checks (performance, steady-state diff, one-frame jumps) live in
-qa/frames.py and are run by `pykaraok check` when a video or --render is given.
+Render-based checks (one-frame jumps, steady-state diff) live in qa/frames.py and
+are run by `pykaraok check` with --jumps and --steady; --perf measures render cost.
 """
 from __future__ import annotations
 

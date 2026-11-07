@@ -4,12 +4,13 @@ Every location can be overridden with an environment variable so that other
 machines and other agent harnesses can use the tool without code changes:
 
     PYKARAOK_CACHE      cache root (compiled MoonScript, downloads, 0x539 sources)
-    PYKARAOK_AEGISUB    an Aegisub ``automation`` directory (only used by ``doctor``
-                        and ``setup libs --from``)
+    PYKARAOK_AEGISUB    an Aegisub ``automation`` directory (used by ``doctor``, and by
+                        ``render vsf`` to find the VSFilter next to it)
     PYKARAOK_INCLUDE    extra Lua include dirs, separated by os.pathsep
     PYKARAOK_MOONC      path to a moonc executable
     PYKARAOK_FFMPEG     path to ffmpeg (default: found on PATH)
     PYKARAOK_FFPROBE    path to ffprobe (default: found on PATH)
+    PYKARAOK_VSFILTER   path to VSFilter.dll for ``render vsf``
 """
 from __future__ import annotations
 
@@ -72,10 +73,12 @@ def env_include_dirs() -> list[Path]:
 def default_include_dirs(extra: list[str | Path] | None = None) -> list[Path]:
     """Include path handed to the Lua runtime, in search order.
 
-    1. pykaraok's own fxlib (so templates can ``include("pykaraok.lua")``)
+    1. pykaraok's own fxlib
     2. vendored Aegisub include dir (karaskel, utils, compiled aegisub.* modules)
-    3. libraries installed by ``pykaraok setup`` (Yutils, ILL, karaOK, 0x.color ...)
+    3. vendored Yutils, and libraries installed by ``pykaraok setup`` (ILL, karaOK, 0x.color ...)
     4. user supplied dirs (``--include`` and PYKARAOK_INCLUDE)
+
+    The loaded script's own folder goes in front of these (prelude.lua, api.load_script).
     """
     dirs = [FXLIB_DIR, AEGISUB_INCLUDE, VENDOR_DIR / "yutils", libs_dir()]
     dirs += [Path(p) for p in (extra or [])]

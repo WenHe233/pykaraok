@@ -5,7 +5,7 @@ Yutils is vendored (MIT).  The others are installed into the cache include dir
 
   * from DependencyControl feeds at pinned commits, every file checked against
     the SHA-1 in the feed, native libraries picked for this platform; or
-  * with --from DIR, copied from an existing automation/include folder.
+  * with --source DIR, copied from an existing automation/include folder.
 
 Once installed, `require "ILL.ILL"` etc. work in `code once` lines: .moon files
 are compiled with moonc on first load and native DLLs are found by requireffi.
@@ -35,7 +35,7 @@ FEEDS = {
 }
 OPTIONAL = {"img": ("ILL", ["ILL.IMG"])}   # image tracing (gif/png/jpeg decoders as DLLs)
 
-# directories copied by --from, when present
+# directories copied by --source, when present
 LOCAL_DIRS = ["ILL", "clipper2", "requireffi", "ZF", "zpolyclipping", "zimg", "arch", "lyger", "petzku",
               "phos", "Oboro", "ln", "0x"]
 LOCAL_FILES = ["Yutils.lua"]

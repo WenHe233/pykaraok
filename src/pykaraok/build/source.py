@@ -10,7 +10,8 @@ Format (one block per directive; the block body runs until the next directive):
     --@template syl noblank style=JP layer=2 | 冰晶本体
     !rt_in()!{\an5\move(...)}
     --@mixin ...                           (0x539 engine)
-    --@style Style: Spark,Arial,20,...       add a style (replaces one with the same name)
+    --@style Style: Spark,Arial,20,...       add a style the lyrics file lacks
+    --@style replace Style: JP,Arial,48,...  replace the lyrics file's style of that name
 
 Code blocks are flattened to one line (comments kept as --[[ ]]).  Template
 blocks are joined line by line with leading indentation removed; lines that

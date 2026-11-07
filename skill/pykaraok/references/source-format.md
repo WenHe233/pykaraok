@@ -5,16 +5,16 @@
 ```lua
 -- 文件说明（忽略）
 
---@meta engine=stock style=JP          -- 全文件默认：引擎、默认样式
---@use core color shapes emit          -- 嵌入 fxlib 模块（作为 code once 行，放在本文件代码之前）
+--@meta engine=stock style=JP
+--@use core color shapes emit
 
 --@note 给 Aegisub 用户看的说明，生成 Effect 为 note 的注释行
 
 --@style Style: Spark,Arial,20,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,5,0,0,0,1
---@style replace Style: JP,...        -- 加 replace 时覆盖歌词文件里的同名样式（默认只在缺少时补上）
+--@style replace Style: JP,Arial,48,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,2,0,2,10,10,10,1
 
---@code once | 配置                     -- “|” 后面的文字写进 Actor 栏，作为这一行的标题
-COL = {ice = '&HFFDCC9&'}              -- 注释会保留成 --[[ ]]
+--@code once | 配置
+COL = {ice = '&HFFDCC9&'}              -- 代码里的注释会保留成 --[[ ]]
 
 --@template syl noblank style=JP layer=2 | 本体
 !retime("line", -300, 200)!
@@ -22,15 +22,25 @@ COL = {ice = '&HFFDCC9&'}              -- 注释会保留成 --[[ ]]
 \fad(300,200)}
 -- 模板块里以 -- 开头的行是注释
 
---@mixin char style=JP                 -- 0x539 引擎
+--@mixin char style=JP
 {\3c!util.gbc(C1, C2)!}
 ```
+
+上面用到的写法：
+
+- `--@meta` 设全文件默认的引擎和样式。
+- `--@use` 嵌入 fxlib 模块，作为 code once 行放在本文件的代码之前。
+- `--@style replace` 覆盖歌词文件里的同名样式；不加 replace 时只在缺少该样式时补上。
+- `|` 后面的文字写进 Actor 栏，作为这一行的标题。
+- `--@mixin` 只用于 0x539 引擎。
+
+**指令行不能带行尾注释。** `--` 之后的文字会被当成指令的内容：`--@use` 会报找不到模块，`--@template`、`--@mixin` 的注释会写进 Effect，`|` 后面的注释会写进 Actor。`--@note`、`--@style` 块的正文也不能放注释行。说明文字放进 `--@note`，或者写在文件开头、`--@meta` 和 `--@use` 的下一行、代码块和模板块里。
 
 ## 块类型
 
 | 指令 | 生成的行 | 说明 |
 |---|---|---|
-| `--@code 类别 [修饰词] [style= layer=] [\| 标题]` | Comment，Effect = `code 类别 修饰词` | 代码压成一行。`--[[长字符串]]` 不能跨行。构建前用 LuaJIT 检查语法 |
+| `--@code 类别 [修饰词] [style= layer=] [\| 标题]` | Comment，Effect = `code 类别 修饰词` | 代码压成一行。长字符串 `[[...]]` 不能跨行，注释可以。构建前用 LuaJIT 检查语法 |
 | `--@template 类别 [修饰词] [style= layer=] [\| 标题]` | Comment，Effect = `template ...` | 每行去掉开头缩进后直接拼接，所以标签可以分行写 |
 | `--@mixin ...` | Comment，Effect = `mixin ...` | 只用于 0x539 |
 | `--@note 文字` | Comment，Effect = `note` | 两种模板器都忽略 |

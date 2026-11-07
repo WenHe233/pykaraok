@@ -29,7 +29,8 @@ pykaraok doctor
 需要 Python 3.11 以上，以及带 libass 的 ffmpeg。可选组件：
 
 ```bash
-pip install opencc                  # 繁体转换（词组级）
+pip install -e ".[cht]"             # 繁体转换（词组级，OpenCC）
+pip install -e ".[draw]"            # draw compose 和 shapely_to_ass 用到的 skia-pathops、shapely
 pykaraok setup 0x539                # 下载并编译 The0x539 KaraTemplater、0x.color、karaOK
 pykaraok setup libs                 # 安装 ILL、clipper2、requireffi（按 DependencyControl feed，校验 SHA-1）
 pykaraok skill install              # 把 skill 链接到 ~/.claude/skills 和 ~/.agents/skills

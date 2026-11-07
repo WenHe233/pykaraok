@@ -207,8 +207,7 @@ def sample_sheet(ass, times: list[float], out, source: Source, font_dirs=None, c
                  width: int = 384, label=True, captions: list[str] | None = None, jobs: int = 4) -> dict:
     """Frames at arbitrary times tiled into one image (row-major, in the given order).
 
-    Close times are rendered in one decoding pass; widely spaced ones are
-    rendered in parallel with fast seeking and tiled with Pillow.
+    Each frame is rendered on its own, in parallel with fast seeking, and tiled with Pillow.
     """
     from concurrent.futures import ThreadPoolExecutor
 
