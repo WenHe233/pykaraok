@@ -24,7 +24,7 @@
 local PY = ...
 local ffi = require 'ffi'
 
-local type, pairs, tostring, tonumber, select, error = type, pairs, tostring, tonumber, select, error
+local type, tostring, tonumber, select, error = type, tostring, tonumber, select, error
 local floor, ceil = math.floor, math.ceil
 local sformat = string.format
 local unpack = unpack or table.unpack
@@ -52,8 +52,6 @@ function pairs(t)
   if type(mt) == 'table' and mt.__pairs then return mt.__pairs(t) end
   return raw_pairs(t)
 end
-pairs = pairs
-ipairs = ipairs
 
 ---------------------------------------------------------------------------
 -- Module loading (script_reader.cpp: module_loader / Install / LoadFile)
