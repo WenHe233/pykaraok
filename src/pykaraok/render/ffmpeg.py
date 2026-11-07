@@ -9,6 +9,7 @@ Known pitfalls handled here (each cost time in earlier projects):
     it (a video next to the fonts too) but none in subfolders (see fonts.single_dir)
   * yuv420p needs even crop/scale sizes
   * `-vsync` is gone in new ffmpeg builds; use -fps_mode
+  * an image output name is a pattern (a%d.png becomes a1.png) unless -update 1 is given
   * without a video, a lavfi colour source is shifted with setpts instead of
     seeking (seeking a generated source renders every frame up to t).  Its pts
     count frames, so `setpts=PTS+t/TB` truncates t to a whole frame: shift by a
@@ -29,9 +30,14 @@ from . import probe
 
 
 def esc(path: str | Path) -> str:
-    """Quote a path for use as a filter option value."""
-    s = str(Path(path).resolve()).replace("\\", "/")
-    s = s.replace("'", r"'\''").replace(":", r"\:")
+    """Quote a path for use as a filter option value.
+
+    ffmpeg unescapes it twice (ffmpeg-filters, "Notes on filtergraph escaping"): once as
+    part of the filtergraph, where it is quoted here, and once as an option value.
+    """
+    s = Path(path).resolve().as_posix()
+    s = s.replace("\\", r"\\").replace("'", r"\'").replace(":", r"\:")     # the option value
+    s = s.replace("'", r"'\''")                                             # the filtergraph
     return f"'{s}'"
 
 
@@ -165,7 +171,7 @@ def frame(ass, t: float, out, source: Source, font_dirs=None, crop=None, width=N
         fs = max(11, min(20, int(ow / 40)))
         chain.append(f"drawtext={_label_font()}:text='%{{pts\\:hms}}':x=3:y=h-th-3:fontsize={fs}"
                      ":fontcolor=yellow:box=1:boxcolor=black@0.5")
-    run(_ff() + inp + ["-vf", ",".join(c for c in chain if c), "-frames:v", "1", str(out)])
+    run(_ff() + inp + ["-vf", ",".join(c for c in chain if c), "-frames:v", "1", "-update", "1", str(out)])
     return Path(out)
 
 
@@ -193,7 +199,7 @@ def sheet(ass, t0: float, t1: float, out, source: Source, font_dirs=None, step: 
     if label:
         chain.append(f"drawtext={_label_font()}:text='%{{pts\\:hms}}':x=4:y=4:fontsize=16:fontcolor=yellow:box=1:boxcolor=black@0.5")
     chain.append(f"tile={cols}x{rows}:padding=2:color=0x303030")
-    run(_ff() + inp + ["-vf", ",".join(chain), "-fps_mode", "passthrough", "-frames:v", "1", str(out)])
+    run(_ff() + inp + ["-vf", ",".join(chain), "-fps_mode", "passthrough", "-frames:v", "1", "-update", "1", str(out)])
     return {"output": str(out), "times": [round(t, 3) for t in times], "cols": cols, "rows": rows}
 
 
