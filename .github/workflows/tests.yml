@@ -1,0 +1,61 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        # The floor of requires-python, and the newest release the dependencies install on.
+        # 3.15 does not install yet: lupa 2.8 has no wheel for it.  Use "3.x" once it has one.
+        python-version: ["3.11", "3.14"]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install ffmpeg with libass
+        run: choco install ffmpeg --no-progress --yes
+
+      # The image's PATH holds Git's usr\bin with msys-2.0.dll, and C:\mingw64\bin and others with
+      # the MinGW runtime.  A program that needs those starts here and not on a user's machine: the
+      # moonc that only ran from Git Bash starts on this PATH, under PowerShell too.
+      - name: Reduce PATH to what a user's machine has
+        run: |
+          $python = Split-Path (Get-Command python).Source
+          $env:PATH = @(
+            $python
+            "$python\Scripts"
+            "$env:ChocolateyInstall\lib\ffmpeg\tools\ffmpeg\bin"
+            "$env:ProgramFiles\Git\cmd"
+            "$env:SystemRoot\System32"
+            $env:SystemRoot
+          ) -join ';'
+          # tests skip without ffmpeg or git, so a missing one has to fail here
+          Get-Command python, pip, ffmpeg, ffprobe, git | Select-Object Source
+          "PATH=$env:PATH" >> $env:GITHUB_ENV
+
+      - name: Install pykaraok
+        run: pip install -e ".[dev,draw,cht]"
+
+      # test_x0539.py and the ILL tests in test_libs.py skip without these
+      - name: Download moonc, 0x539 and the Lua libraries
+        run: pykaraok setup all
+
+      - name: Run the tests
+        run: python -m pytest -q -ra
