@@ -130,6 +130,7 @@ def cmd_run_macro(args) -> int:
     status, msg, secs = rt.run_macro(name, sel, args.active or 0)
     if status == "ok":
         rt.commit_to(doc)
+        doc.rebase_project_paths(Path(args.input).parent, Path(args.output).parent)
         doc.save(args.output)
     data = {"status": status, "message": msg, "seconds": round(secs, 3),
             "logs": [{"level": lv, "message": m} for lv, m in rt.logs]}

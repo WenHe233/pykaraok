@@ -5,6 +5,7 @@ import sys
 
 import pytest
 
+from pykaraok.ass.document import AssDocument
 from pykaraok.cli import main
 from pykaraok.cli_tools import _is_junction, _link_dir
 from test_fonts import make_font
@@ -71,6 +72,31 @@ def test_draw_compose_says_what_to_install(argv, monkeypatch, capsys):
     monkeypatch.setitem(sys.modules, "pykaraok.draw.compose", None)
     assert main(argv(["draw", "compose", "--font", "{tmp}/f.ttf", "--size", "50", "--part", "A"])) == 1
     assert "pip install skia-pathops" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("command", ["apply", "run-macro", "cht"])
+def test_recorded_video_still_resolves_from_another_folder(command, tmp_path, data_dir):
+    if command == "cht" and sys.platform != "win32":
+        pytest.importorskip("opencc")
+    project, other = tmp_path / "project", tmp_path / "other"
+    project.mkdir()
+    other.mkdir()
+    (project / "v.mkv").write_bytes(b"")
+    text = (data_dir / "lyrics.ass").read_text(encoding="utf-8")
+    text = text.replace("[V4+ Styles]", "[Aegisub Project Garbage]\nVideo File: v.mkv\n\n[V4+ Styles]", 1)
+    ass = project / "x.ass"
+    ass.write_text(text, encoding="utf-8", newline="\n")
+    out = other / "out.ass"
+    if command == "apply":
+        args = ["apply", str(ass), "-o", str(out)]
+    elif command == "cht":
+        args = ["cht", str(ass), "-o", str(out), "--styles", "CN"]
+    else:
+        script = tmp_path / "noop.lua"
+        script.write_text("aegisub.register_macro('m', 'd', function() end)\n", encoding="utf-8")
+        args = ["run-macro", str(script), str(ass), "-o", str(out)]
+    assert main(args) == 0
+    assert (other / AssDocument.load(out).project_property("Video File")).resolve() == (project / "v.mkv").resolve()
 
 
 def test_skill_link_can_be_replaced(tmp_path):

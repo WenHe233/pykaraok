@@ -66,6 +66,7 @@ def cmd_cht(args, out):
         rules.append((a, b))
     doc = AssDocument.load(src)
     rep = convert_doc(doc, args.styles.split(","), args.mode, rules)
+    doc.rebase_project_paths(src.parent, dst.parent)
     doc.save(dst)
     data = rep.to_dict()
     data["output"] = str(dst)
