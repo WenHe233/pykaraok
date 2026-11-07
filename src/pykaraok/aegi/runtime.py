@@ -285,7 +285,7 @@ class AegiRuntime:
 
     # ------------------------------------------------------------- scripts
     def load_script(self, path: str | Path) -> None:
-        path = str(Path(path)).replace("\\", "/")
+        path = Path(path).resolve().as_posix()
         ok, err = self.api.load_script(path)
         if not ok:
             raise ScriptError(f"failed to load {path}:\n{err}")

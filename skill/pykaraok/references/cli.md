@@ -33,7 +33,7 @@ render 不给 `-o` 时，输出写到**当前目录**，文件名为 `<输入文
 
 build、apply、run-macro 共用的选项：
 - `--fonts`
-- `--include DIR`：额外的 Lua include 目录。
+- `--include DIR`：额外的 Lua include 目录。脚本自己所在的目录总是排在最前面，和 Aegisub 一样。
 - `--metrics auto|gdi|fonttools`
 - `--video V` 或 `--fps 24000/1001`：提供 `aegisub.video_size` 和 `frame_from_ms`。
 - `--seed N`：固定 math.random，0x539 每次运行会重新播种，这个选项把它固定住。

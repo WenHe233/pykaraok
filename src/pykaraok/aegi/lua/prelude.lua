@@ -63,13 +63,20 @@ local function load_chunk(path)
   return fn
 end
 
-do
+-- Script::Script (auto4_base.cpp) puts the script's own folder first in its include
+-- path; api.load_script does that here.  Install (script_reader.cpp) makes package.path of it.
+local script_dir = PY.script_dir
+local include_dirs = {}
+for _, dir in raw_ipairs(PY.include_dirs) do include_dirs[#include_dirs + 1] = dir end
+
+local function set_package_path()
   local parts = {}
-  for _, dir in raw_ipairs(PY.include_dirs) do
+  for _, dir in raw_ipairs(include_dirs) do
     parts[#parts + 1] = dir .. '/?.lua;' .. dir .. '/?/init.lua'
   end
   package.path = table.concat(parts, ';')
 end
+set_package_path()
 
 local function module_loader(name)
   local modpath = name:gsub('%.', '/')
@@ -117,12 +124,16 @@ package.preload['moonscript.line_tables'] = function() return {} end
 dofile = nil
 loadfile = nil
 
+-- LuaScript::LuaInclude (auto4_lua.cpp): a path is relative to the script, a plain name
+-- is looked up in the include path
 function include(filename)
   local path
-  if filename:find('[/\\]') then
-    path = PY.script_dir .. '/' .. filename
+  if filename:find('^[/\\]') or filename:find('^%a:[/\\]') then
+    path = filename
+  elseif filename:find('[/\\]') then
+    path = script_dir .. '/' .. filename
   else
-    for _, dir in raw_ipairs(PY.include_dirs) do
+    for _, dir in raw_ipairs(include_dirs) do
       local cand = dir .. '/' .. filename
       if PY.file_exists(cand) then path = cand break end
     end
@@ -650,6 +661,12 @@ function api.get_extradata()
 end
 
 function api.load_script(path)
+  local dir = path:match('^(.*)/[^/]*$')
+  if dir then
+    script_dir = dir
+    table.insert(include_dirs, 1, dir)
+    set_package_path()
+  end
   local fn, err = load_chunk(path)
   if not fn then return false, tostring(err) end
   local ok, e = xpcall(fn, debug.traceback)
