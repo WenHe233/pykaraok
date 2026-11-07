@@ -6,6 +6,7 @@ import sys
 import pytest
 
 from pykaraok.cli import main
+from pykaraok.cli_tools import _is_junction, _link_dir
 from test_fonts import make_font
 
 needs_ffmpeg = pytest.mark.skipif(not shutil.which("ffmpeg"), reason="needs ffmpeg")
@@ -70,3 +71,26 @@ def test_draw_compose_says_what_to_install(argv, monkeypatch, capsys):
     monkeypatch.setitem(sys.modules, "pykaraok.draw.compose", None)
     assert main(argv(["draw", "compose", "--font", "{tmp}/f.ttf", "--size", "50", "--part", "A"])) == 1
     assert "pip install skia-pathops" in capsys.readouterr().err
+
+
+def test_skill_link_can_be_replaced(tmp_path):
+    """Installing again failed on Python 3.11 (Path.is_junction is 3.12), and on every version
+    after the repository moved, which is when it has to be done again."""
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "SKILL.md").write_text("x", encoding="utf-8")
+    dst = tmp_path / "skills" / "pykaraok"
+    _link_dir(src, dst, False)
+    _link_dir(src, dst, False)
+    assert (dst / "SKILL.md").exists() and (src / "SKILL.md").exists()
+
+    moved = src.rename(tmp_path / "moved")
+    assert not dst.exists()
+    _link_dir(moved, dst, False)
+    assert (dst / "SKILL.md").exists()
+
+    # a copy over a link leaves the source alone, and a link replaces a copy
+    assert _link_dir(moved, dst, True) == "copied"
+    assert (moved / "SKILL.md").exists() and not (dst.is_symlink() or _is_junction(dst))
+    _link_dir(moved, dst, False)
+    assert dst.is_symlink() or _is_junction(dst)

@@ -151,11 +151,14 @@ def cmd_paths(args, out):
 
 
 def _link_dir(src: Path, dst: Path, copy: bool) -> str:
+    import os
     import shutil
     import sys
-    if dst.exists() or dst.is_symlink():
-        if dst.is_symlink() or (sys.platform == "win32" and _is_junction(dst)):
-            dst.unlink() if dst.is_symlink() else dst.rmdir()
+    if os.path.lexists(dst):            # true as well for a link whose target has moved
+        if dst.is_symlink():
+            dst.unlink()
+        elif _is_junction(dst):
+            dst.rmdir()
         else:
             shutil.rmtree(dst)
     dst.parent.mkdir(parents=True, exist_ok=True)
@@ -171,9 +174,11 @@ def _link_dir(src: Path, dst: Path, copy: bool) -> str:
 
 
 def _is_junction(p: Path) -> bool:
+    """Path.is_junction needs Python 3.12; st_reparse_tag exists on Windows only."""
+    import stat
     try:
-        return p.is_junction()
-    except AttributeError:
+        return p.lstat().st_reparse_tag == stat.IO_REPARSE_TAG_MOUNT_POINT
+    except (OSError, AttributeError):
         return False
 
 
