@@ -164,6 +164,19 @@ def _style_key(s: dict) -> tuple:
     return tuple((k, s[k]) for k in sorted(s) if k not in ("raw", "section", "class"))
 
 
+def _info_key(ln: str) -> str | None:
+    """The key of a [Script Info] line scripts can see; None for comments and project properties."""
+    if ln.startswith(";") or ln.startswith("Collisions:"):
+        return None
+    pos = ln.find(":")
+    if pos < 0:
+        return None
+    key = ln[:pos]
+    if key in _PROPERTY_KEYS or key.startswith("Automation Settings "):
+        return None
+    return key
+
+
 class AssDocument:
     def __init__(self):
         self.path: Path | None = None
@@ -218,15 +231,10 @@ class AssDocument:
             k = sec.key
             if k == "script info":
                 for ln in sec.lines:
-                    if ln.startswith(";") or ln.startswith("Collisions:"):
-                        continue
-                    pos = ln.find(":")
-                    if pos < 0:
-                        continue
-                    key, value = ln[:pos], ln[pos + 1:].lstrip()
-                    if key in _PROPERTY_KEYS or key.startswith("Automation Settings "):
-                        continue
-                    self.info.append({"class": "info", "section": "[Script Info]", "key": key, "value": value})
+                    key = _info_key(ln)
+                    if key is not None:
+                        self.info.append({"class": "info", "section": "[Script Info]", "key": key,
+                                          "value": ln[len(key) + 1:].lstrip()})
             elif k in ("v4+ styles", "v4 styles"):
                 for ln in sec.lines:
                     if ln.startswith("Style:"):
@@ -395,43 +403,56 @@ class AssDocument:
                 ev.pop("raw", None)
         self.extradata = [e for e in self.extradata if e.id in used]
 
+    def _ensure_sections(self):
+        """Lines were added to a file without their section: add it where Aegisub writes it."""
+        def add(name, fmt, before):
+            at = next((i for i, s in enumerate(self.sections) if s.key in before), len(self.sections))
+            if at and self.sections[at - 1].lines[-1:] != [""]:
+                self.sections[at - 1].lines.append("")
+            lines = [fmt, ""] if at < len(self.sections) else [fmt]
+            self.sections.insert(at, Section(name, f"[{name}]", lines))
+
+        have = {s.key for s in self.sections}
+        if self.styles and not have & {"v4+ styles", "v4 styles"}:
+            add("V4+ Styles", STYLE_FORMAT, ("fonts", "graphics", "events", "aegisub extradata"))
+        if self.events and "events" not in have:
+            add("Events", EVENT_FORMAT, ("aegisub extradata",))
+
     def to_text(self) -> str:
         self._clean_extradata()
-        out: list[str] = []
-        wrote_extradata = False
+        self._ensure_sections()
         info_changed = [(i["key"], i["value"]) for i in self.info] != self._orig_info
+        # each list is written once, into the first section of its kind
+        info = [f"{i['key']}: {i['value']}" for i in self.info]
+        styles = [s.get("raw") or format_style(s) for s in self.styles]
+        events = [e.get("raw") or format_event(e) for e in self.events]
+        extradata = self._extradata_lines()
+        out: list[str] = []
         for sec in self.sections:
             k = sec.key
             if sec.header:
                 out.append(sec.header)
             if k == "script info" and info_changed:
-                out.extend(ln for ln in sec.lines if ln.startswith(";"))
-                out.extend(f"{i['key']}: {i['value']}" for i in self.info)
-                out.append("")
+                out += _replace_rows(sec.lines, lambda ln: _info_key(ln) is not None, info)
+                info = []
             elif k in ("v4+ styles", "v4 styles"):
-                fmt = next((ln for ln in sec.lines if ln.startswith("Format:")), STYLE_FORMAT)
-                out.append(fmt)
-                out.extend(s.get("raw") or format_style(s) for s in self.styles)
-                out.append("")
+                out += _replace_rows(sec.lines, lambda ln: ln.startswith("Style:"), styles, STYLE_FORMAT)
+                styles = []
             elif k == "events":
-                fmt = next((ln for ln in sec.lines if ln.startswith("Format:")), EVENT_FORMAT)
-                out.append(fmt)
-                out.extend(e.get("raw") or format_event(e) for e in self.events)
-                out.append("")
+                out += _replace_rows(sec.lines, lambda ln: ln.startswith(("Dialogue:", "Comment:")), events, EVENT_FORMAT)
+                events = []
             elif k == "aegisub extradata":
-                wrote_extradata = True
-                out.extend(self._extradata_lines())
-                out.append("")
+                out += _replace_rows(sec.lines, lambda ln: ln.startswith("Data:"), extradata)
+                extradata = []
             else:
-                out.extend(sec.lines)
-        if not wrote_extradata and self.extradata:
+                out += sec.lines
+        if extradata:
+            if out and out[-1] != "":
+                out.append("")
             out.append("[Aegisub Extradata]")
-            out.extend(self._extradata_lines())
-            out.append("")
-        # collapse the blank line we add at the end of rebuilt sections when
-        # the original already ended with one
-        text = self.newline.join(_dedupe_blank_runs(out))
-        if self.trailing_newline and not text.endswith(self.newline):
+            out += extradata
+        text = self.newline.join(out)
+        if self.trailing_newline:
             text += self.newline
         return text
 
@@ -473,12 +494,30 @@ def _looks_like_attachment(s: str) -> bool:
     return s[1:-1].lower() not in _KNOWN_SECTIONS
 
 
-def _dedupe_blank_runs(lines: list[str]) -> list[str]:
+def _replace_rows(lines: list[str], is_row, rows: list[str], fmt: str | None = None) -> list[str]:
+    """A section's lines with its entries replaced by `rows`, one for one; all other lines stay.
+
+    Extra rows go after the last entry or, in a section without entries, before the blank
+    lines that end it.  fmt is the Format line for a changed section that has none.
+    """
+    if rows == [ln for ln in lines if is_row(ln)]:
+        return lines
     out: list[str] = []
+    new = iter(rows)
+    after = None
     for ln in lines:
-        if ln == "" and out and out[-1] == "":
+        if not is_row(ln):
+            out.append(ln)
             continue
-        out.append(ln)
-    while out and out[-1] == "":
-        out.pop()
+        row = next(new, None)
+        if row is not None:
+            out.append(row)
+            after = len(out)
+    if after is None:
+        after = len(out)
+        while after and out[after - 1] == "":
+            after -= 1
+    out[after:after] = new
+    if fmt and not any(ln.startswith("Format:") for ln in out):
+        out.insert(0, fmt)
     return out
