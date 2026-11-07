@@ -7,6 +7,9 @@ made every render of one project take ~20 s.
 import json
 import shutil
 import sys
+import threading
+import zipfile
+from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 import pytest
@@ -107,6 +110,50 @@ def test_libass_fontsdir_holds_only_top_level_fonts(project):
     only.mkdir()
     shutil.copy(project.parent / "top.ttf", only)
     assert fonts.single_dir([only]) == only
+
+
+def test_single_dir_from_several_threads(project):
+    """render lines renders in parallel, and every thread asks for the merged fontsdir at once.
+
+    They used to share one temporary directory, so the first render of a font set crashed.
+    """
+    folder = project.parent
+    for i in range(12):
+        shutil.copy(folder / "top.ttf", folder / f"copy{i}.ttf")
+    n = len(fonts.font_files([folder]))
+    barrier = threading.Barrier(8)
+
+    def one(_):
+        barrier.wait()
+        return fonts.single_dir([folder])
+
+    with ThreadPoolExecutor(8) as ex:
+        dirs = set(ex.map(one, range(8)))
+    for d in dirs:
+        assert len(list(d.iterdir())) == n
+
+
+def test_interrupted_font_pack_is_not_taken_as_complete(project, monkeypatch):
+    """An interrupted unpack used to leave a partial directory that later runs took as complete."""
+    pack = project.parent / "fonts.zip"
+    with zipfile.ZipFile(pack, "w") as zf:
+        for name in ("a.ttf", "b.ttf"):
+            zf.write(project.parent / "top.ttf", name)
+
+    real, calls = zipfile.ZipFile.read, []
+
+    def interrupted(self, *args, **kwargs):
+        calls.append(args)
+        if len(calls) == 2:
+            raise KeyboardInterrupt
+        return real(self, *args, **kwargs)
+
+    with monkeypatch.context() as m:
+        m.setattr(zipfile.ZipFile, "read", interrupted)
+        with pytest.raises(KeyboardInterrupt):
+            fonts.unpack_zip(pack)
+    assert not list((project.parent.parent / "cache" / "fonts").iterdir())
+    assert len(list(fonts.unpack_zip(pack).iterdir())) == 2
 
 
 def _box_fill(mask):

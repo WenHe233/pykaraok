@@ -7,6 +7,7 @@ from __future__ import annotations
 import hashlib
 import os
 import shutil
+import tempfile
 import zipfile
 from pathlib import Path
 
@@ -23,20 +24,44 @@ def _cache_key(paths: list[Path]) -> str:
     return h.hexdigest()[:16]
 
 
+def _build_dir(out: Path, fill) -> Path:
+    """Make the cached directory `out` with fill(tmp); returns the directory to use.
+
+    fill works in a private temporary directory that is then renamed, so an interrupted
+    run leaves no partial `out` behind, and several threads or processes (render lines
+    renders in parallel) can race for the same `out`.
+    """
+    if out.is_dir() and any(out.iterdir()):
+        return out
+    out.parent.mkdir(parents=True, exist_ok=True)
+    tmp = Path(tempfile.mkdtemp(prefix=out.name + ".tmp", dir=out.parent))
+    try:
+        fill(tmp)
+    except BaseException:
+        shutil.rmtree(tmp, ignore_errors=True)
+        raise
+    try:
+        tmp.rename(out)
+    except OSError:  # made by another thread or process meanwhile, or a file in tmp is still open
+        if not out.is_dir():
+            return tmp
+        shutil.rmtree(tmp, ignore_errors=True)
+    return out
+
+
 def unpack_zip(zpath: Path) -> Path:
     """Extract the font files of a zip font pack into the cache; returns the directory."""
     zpath = Path(zpath)
-    out = config.cache_dir() / "fonts" / ("zip-" + _cache_key([zpath]))
-    if out.is_dir() and any(out.iterdir()):
-        return out
-    out.mkdir(parents=True, exist_ok=True)
-    with zipfile.ZipFile(zpath) as zf:
-        for i, info in enumerate(zf.infolist()):
-            name = info.filename
-            if name.lower().endswith(FONT_EXTS):
-                # zip member names of CJK packs are often mis-decoded; keep them unique and ASCII
-                (out / f"{i:04d}{Path(name).suffix.lower()}").write_bytes(zf.read(info))
-    return out
+
+    def fill(tmp: Path):
+        with zipfile.ZipFile(zpath) as zf:
+            for i, info in enumerate(zf.infolist()):
+                name = info.filename
+                if name.lower().endswith(FONT_EXTS):
+                    # zip member names of CJK packs are often mis-decoded; keep them unique and ASCII
+                    (tmp / f"{i:04d}{Path(name).suffix.lower()}").write_bytes(zf.read(info))
+
+    return _build_dir(config.cache_dir() / "fonts" / ("zip-" + _cache_key([zpath])), fill)
 
 
 def resolve(font_args) -> list[Path]:
@@ -83,23 +108,13 @@ def single_dir(paths) -> Path | None:
             all(f.suffix.lower() in FONT_EXTS and f.is_file() for f in paths[0].iterdir()):
         return paths[0]
     files = font_files(paths)
-    out = config.cache_dir() / "fonts" / ("merged-" + _cache_key(files))
-    if out.is_dir():
-        return out
-    # fill a temporary dir first so that an interrupted run leaves no partial dir behind
-    tmp = out.with_name(f"{out.name}.tmp{os.getpid()}")
-    shutil.rmtree(tmp, ignore_errors=True)
-    tmp.mkdir(parents=True)
-    for i, f in enumerate(files):
-        dst = tmp / f"{i:04d}{f.suffix.lower()}"
-        try:
-            os.link(f, dst)
-        except OSError:
-            shutil.copy2(f, dst)
-    try:
-        tmp.rename(out)
-    except OSError:  # made by another process meanwhile, or a file in tmp is still open
-        if not out.is_dir():
-            return tmp
-        shutil.rmtree(tmp, ignore_errors=True)
-    return out
+
+    def fill(tmp: Path):
+        for i, f in enumerate(files):
+            dst = tmp / f"{i:04d}{f.suffix.lower()}"
+            try:
+                os.link(f, dst)
+            except OSError:
+                shutil.copy2(f, dst)
+
+    return _build_dir(config.cache_dir() / "fonts" / ("merged-" + _cache_key(files)), fill)
