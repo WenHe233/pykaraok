@@ -3,6 +3,7 @@ import shutil
 import subprocess
 import sys
 import threading
+import tracemalloc
 
 import pytest
 
@@ -32,6 +33,38 @@ def _ass(tmp_path, extra=""):
     p = tmp_path / "x.ass"
     p.write_text(ASS + extra, encoding="utf-8", newline="\n")
     return p
+
+
+def test_find_jumps_reports_a_one_frame_flash(tmp_path):
+    # a second box that only frame 25 (1.00 s) shows
+    ass = _ass(tmp_path, "Dialogue: 0,0:00:01.00,0:00:01.04,Default,,0,0,0,fx,"
+                         "{\\an7\\pos(300,200)\\p1}m 0 0 l 100 0 l 100 100 l 0 100\n")
+    info = find_jumps(ass, 0.5, 1.5, SRC, width=320)
+    assert info["frames"] == 25
+    assert info["count"] == 1
+    jump = info["jumps"][0]
+    assert jump["time"] == 1.0
+    assert all(abs(got - want) <= 4 for got, want in zip(jump["box"], (300, 200, 400, 300))), jump
+
+
+def test_find_jumps_ignores_steady_and_moving_lines(tmp_path):
+    ass = _ass(tmp_path, "Dialogue: 0,0:00:00.00,0:00:05.00,Default,,0,0,0,fx,"
+                         "{\\an7\\move(200,200,500,200)\\p1}m 0 0 l 100 0 l 100 100 l 0 100\n")
+    info = find_jumps(ass, 0.5, 1.5, SRC, width=320)
+    assert info["frames"] == 25
+    assert info["count"] == 0
+
+
+def test_find_jumps_does_not_hold_all_frames(tmp_path):
+    """A list of all frames took 1.7 GB for three minutes at the default width."""
+    tracemalloc.start()
+    try:
+        info = find_jumps(_ass(tmp_path), 0, 4, SRC, width=480)
+        peak = tracemalloc.get_traced_memory()[1]
+    finally:
+        tracemalloc.stop()
+    assert info["frames"] == 100
+    assert peak < 20 * 480 * 270 * 3
 
 
 def test_ffmpeg_failure_is_an_error(tmp_path):

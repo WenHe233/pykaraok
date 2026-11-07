@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import subprocess
 import tempfile
+from collections import deque
 from pathlib import Path
 
 import numpy as np
@@ -52,15 +53,19 @@ def find_jumps(ass, t0: float, t1: float, source: rf.Source, font_dirs=None, wid
                threshold: int = 40, min_pixels: int = 60, top: int = 10) -> dict:
     """Frames that differ from both neighbours while the neighbours agree: a one-frame glitch.
 
-    Rendered on a plain black background so only subtitle changes count.
+    Rendered on a plain black background so only subtitle changes count.  Only three frames
+    are held at a time; a whole song at the default width would take gigabytes.
     """
     bg = rf.Source(None, "black", source.size, source.fps)
-    frames = list(stream_frames(ass, t0, t1, bg, font_dirs, width))
+    window = deque(maxlen=3)
+    frames = 0
     hits = []
-    for i in range(1, len(frames) - 1):
-        a = frames[i - 1][1].astype(np.int16)
-        b = frames[i][1].astype(np.int16)
-        c = frames[i + 1][1].astype(np.int16)
+    for frame in stream_frames(ass, t0, t1, bg, font_dirs, width):
+        frames += 1
+        window.append(frame)
+        if len(window) < 3:
+            continue
+        a, b, c = (f[1].astype(np.int16) for f in window)
         dev = np.abs(b - (a + c) // 2).max(axis=2)
         n_dev = int((dev > threshold).sum())
         if n_dev < min_pixels:
@@ -68,12 +73,12 @@ def find_jumps(ass, t0: float, t1: float, source: rf.Source, font_dirs=None, wid
         n_ac = int((np.abs(c - a).max(axis=2) > threshold).sum())
         if n_dev > 3 * max(n_ac, 1):
             ys, xs = np.nonzero(dev > threshold)
-            scale = source.size[0] / frames[i][1].shape[1]
-            hits.append({"time": round(frames[i][0], 3), "pixels": n_dev, "neighbour_pixels": n_ac,
+            scale = source.size[0] / b.shape[1]
+            hits.append({"time": round(window[1][0], 3), "pixels": n_dev, "neighbour_pixels": n_ac,
                          "box": [int(xs.min() * scale), int(ys.min() * scale),
                                  int(xs.max() * scale), int(ys.max() * scale)]})
     hits.sort(key=lambda h: -h["pixels"])
-    return {"frames": len(frames), "jumps": hits[:top], "count": len(hits)}
+    return {"frames": frames, "jumps": hits[:top], "count": len(hits)}
 
 
 def steady_diff(original, effect, source: rf.Source, font_dirs=None, styles=None, outdir=None,
