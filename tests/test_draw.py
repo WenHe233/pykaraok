@@ -3,11 +3,14 @@ import shutil
 
 import numpy as np
 import pytest
+from fontTools.fontBuilder import FontBuilder
+from fontTools.pens.ttGlyphPen import TTGlyphPen
 from PIL import Image
 
 from pykaraok.draw.compose import Part, compose, path_to_ass, shapely_to_ass
 from pykaraok.draw.glyphs import resolve_face, text_drawing
 from pykaraok.render import ffmpeg as rf
+from test_fonts import make_font
 
 HEADER = """[Script Info]
 ScriptType: v4.00+
@@ -45,6 +48,46 @@ def test_text_drawing_matches_rendered_text(tmp_path):
     ya, xa = np.nonzero(ma)
     yb, xb = np.nonzero(mb)
     assert abs(xa.mean() - xb.mean()) < 1.0 and abs(ya.mean() - yb.mean()) < 1.0
+
+
+def _font_with_spaces(path):
+    """Cell height 1000 units; A is 600 units wide, a space 300 and U+3000 1000."""
+    fb = FontBuilder(1000, isTTF=True)
+    fb.setupGlyphOrder([".notdef", "A", "space", "uni3000"])
+    fb.setupCharacterMap({ord("A"): "A", 0x20: "space", 0x3000: "uni3000"})
+    pen = TTGlyphPen(None)
+    pen.moveTo((100, 0))
+    pen.lineTo((100, 700))
+    pen.lineTo((500, 700))
+    pen.lineTo((500, 0))
+    pen.closePath()
+    box, empty = pen.glyph(), TTGlyphPen(None).glyph()
+    fb.setupGlyf({".notdef": box, "A": box, "space": empty, "uni3000": empty})
+    fb.setupHorizontalMetrics({".notdef": (600, 100), "A": (600, 100), "space": (300, 0), "uni3000": (1000, 0)})
+    fb.setupHorizontalHeader(ascent=800, descent=-200)
+    fb.setupNameTable({"familyName": "PykSpaces", "styleName": "Regular", "fullName": "PykSpaces",
+                       "uniqueFontIdentifier": "PykSpaces"})
+    fb.setupOS2(sTypoAscender=800, sTypoDescender=-200, usWinAscent=800, usWinDescent=200)
+    fb.setupPost()
+    fb.save(str(path))
+
+
+def test_blanks_advance_by_their_own_width(tmp_path):
+    """Every blank used to count as an ASCII space: U+3000 came out 3.4 times too narrow in YaHei."""
+    path = tmp_path / "spaces.ttf"
+    _font_with_spaces(path)
+    face = resolve_face(str(path))
+    assert text_drawing(face, "A A", 100)[1] == pytest.approx(150)
+    assert text_drawing(face, "A　A", 100)[1] == pytest.approx(220)
+    assert text_drawing(face, "A A", 100)[1] == pytest.approx(150)     # no such glyph: as a space
+    # the second A starts where the blank ends
+    assert text_drawing(face, "　A", 100)[0].startswith("m 110 ")
+
+
+def test_blank_in_a_font_without_any(tmp_path):
+    path = tmp_path / "no_space.ttf"
+    make_font(path, "PykNoSpace")
+    assert text_drawing(resolve_face(str(path)), "A A", 100)[1] == pytest.approx(60 + 100 / 3 + 60)
 
 
 def test_compose_merges_parts():

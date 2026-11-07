@@ -96,10 +96,12 @@ def text_drawing(face: FontFace, text: str, size: float, spacing: float = 0.0, s
     """Whole string as one drawing (no kerning, like GDI). Returns (drawing, width_px)."""
     parts = []
     x = 0.0
+    cmap = face.ttfont().getBestCmap() or {}
     for ch in text:
         if ch.isspace():
-            g = glyph_drawing(face, " ", size) if ord(" ") in (face.ttfont().getBestCmap() or {}) else None
-            x += (g.advance if g else size / 3) + spacing
+            # nothing to draw, only its width: a full-width space is much wider than " "
+            blank = ch if ord(ch) in cmap else " "
+            x += (glyph_drawing(face, blank, size).advance if ord(blank) in cmap else size / 3) + spacing
             continue
         g = glyph_drawing(face, ch, size, x=x, scale=scale, decimals=decimals)
         parts.append(g.drawing)
