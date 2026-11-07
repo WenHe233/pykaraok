@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import subprocess
+import tempfile
 from pathlib import Path
 
 import numpy as np
@@ -16,7 +17,8 @@ def stream_frames(ass, t0: float, t1: float, source: rf.Source, font_dirs=None, 
 
     The first frame is the first one at or after t0 (Source.first_frame).  The time is the
     frame's own timestamp, the time libass rendered it at; `render frame --at` with that
-    time shows the same frame.
+    time shows the same frame.  Raises RuntimeError if ffmpeg fails, so that a failure is
+    not taken for a range without problems.
     """
     w, h = source.size
     ow = width - width % 2
@@ -25,19 +27,25 @@ def stream_frames(ass, t0: float, t1: float, source: rf.Source, font_dirs=None, 
     chain = prefix + (rf.subtitle_filter(ass, font_dirs) + "," if ass else "") + f"scale={ow}:{oh}"
     cmd = [config.ffmpeg(), "-hide_banner", "-loglevel", "error"] + inp + \
         ["-vf", chain, "-f", "rawvideo", "-pix_fmt", "rgb24", "-fps_mode", "passthrough", "-"]
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    size = ow * oh * 3
-    k = source.first_frame(t0)
-    try:
-        while True:
-            buf = proc.stdout.read(size)
-            if len(buf) < size:
-                break
-            yield source.frame_time(k), np.frombuffer(buf, np.uint8).reshape(oh, ow, 3)
-            k += 1
-    finally:
-        proc.stdout.close()
-        proc.wait()
+    # stderr goes to a file: ffmpeg would block on a full pipe while we wait for frames
+    with tempfile.TemporaryFile() as err:
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=err)
+        size = ow * oh * 3
+        k = source.first_frame(t0)
+        try:
+            while True:
+                buf = proc.stdout.read(size)
+                if len(buf) < size:
+                    break
+                yield source.frame_time(k), np.frombuffer(buf, np.uint8).reshape(oh, ow, 3)
+                k += 1
+        finally:
+            proc.stdout.close()
+            proc.wait()
+        # a caller that stops early never gets here, and its ffmpeg dies on the closed pipe
+        if proc.returncode != 0:
+            err.seek(0)
+            raise RuntimeError("ffmpeg failed:\n" + " ".join(cmd) + "\n" + err.read().decode("utf-8", "replace")[-3000:])
 
 
 def find_jumps(ass, t0: float, t1: float, source: rf.Source, font_dirs=None, width: int = 480,
@@ -81,7 +89,6 @@ def steady_diff(original, effect, source: rf.Source, font_dirs=None, styles=None
     "yes" / "no" force it.
     """
     import re
-    import tempfile
 
     from PIL import Image
     doc = AssDocument.load(original)
