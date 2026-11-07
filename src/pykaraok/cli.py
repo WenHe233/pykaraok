@@ -59,7 +59,8 @@ def _run_options(args):
         dialog = json.loads(Path(args.dialog).read_text(encoding="utf-8")) if os.path.exists(args.dialog) \
             else json.loads(args.dialog)
     from .cli_more import default_fonts
-    fonts = default_fonts(Path(args.input), args.fonts) if getattr(args, "input", None) else         __import__("pykaraok.fonts", fromlist=["resolve"]).resolve(args.fonts)
+    from .fonts import resolve
+    fonts = default_fonts(Path(args.input), args.fonts) if getattr(args, "input", None) else resolve(args.fonts)
     return RunOptions(
         include_dirs=args.include or [],
         font_dirs=fonts,

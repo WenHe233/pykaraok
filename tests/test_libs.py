@@ -1,7 +1,7 @@
 """Aegisub Lua libraries inside the template environment (Yutils vendored; ILL via `pykaraok setup libs`)."""
 import pytest
 
-from pykaraok import config, libs
+from pykaraok import libs
 from pykaraok.aegi.runtime import AegiRuntime, RunOptions
 from pykaraok.aegi.templater import apply_templates
 from pykaraok.ass.document import AssDocument

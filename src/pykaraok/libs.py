@@ -38,7 +38,6 @@ OPTIONAL = {"img": ("ILL", ["ILL.IMG"])}   # image tracing (gif/png/jpeg decoder
 # directories copied by --source, when present
 LOCAL_DIRS = ["ILL", "clipper2", "requireffi", "ZF", "zpolyclipping", "zimg", "arch", "lyger", "petzku",
               "phos", "Oboro", "ln", "0x"]
-LOCAL_FILES = ["Yutils.lua"]
 
 KNOWN_MODULES = {
     "Yutils": "Yutils",
@@ -131,10 +130,6 @@ def install_from_dir(source: Path, dest: Path, log=print) -> list[str]:
                 if f.exists():
                     shutil.copy2(f, dest / f.name)
             done.append(str(dest / d))
-    for f in LOCAL_FILES:
-        if (source / f).exists() and f != "Yutils.lua":
-            shutil.copy2(source / f, dest / f)
-            done.append(str(dest / f))
     return done
 
 

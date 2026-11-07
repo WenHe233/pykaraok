@@ -3,7 +3,7 @@ import re
 
 import pytest
 
-from pykaraok.aegi.runtime import AegiRuntime, RunOptions
+from pykaraok.aegi.runtime import AegiRuntime
 from pykaraok.aegi.templater import apply_templates, detect_engine
 from pykaraok.ass.document import AssDocument, format_event
 from pykaraok.build.project import build

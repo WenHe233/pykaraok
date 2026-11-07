@@ -53,7 +53,6 @@ def estimate(path, t0: float, t1: float, bpm_min: float = 60, bpm_max: float = 2
         raise ValueError("need at least a few seconds of audio")
     e = env - env.mean()
     ac = np.correlate(e, e, mode="full")[len(e) - 1:]
-    lags = np.arange(len(ac))
     lo, hi = int(fps * 60 / bpm_max), int(fps * 60 / bpm_min)
     cand = np.arange(lo, min(hi, len(ac) - 1))
     # mild preference for 90..160 BPM to avoid half/double tempo picks

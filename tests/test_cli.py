@@ -2,6 +2,8 @@
 import json
 import shutil
 import sys
+import zipfile
+from pathlib import Path
 
 import pytest
 
@@ -72,6 +74,16 @@ def test_draw_compose_says_what_to_install(argv, monkeypatch, capsys):
     monkeypatch.setitem(sys.modules, "pykaraok.draw.compose", None)
     assert main(argv(["draw", "compose", "--font", "{tmp}/f.ttf", "--size", "50", "--part", "A"])) == 1
     assert "pip install skia-pathops" in capsys.readouterr().err
+
+
+def test_fonts_unpack_prints_the_directory(argv, tmp_path, capsys):
+    with zipfile.ZipFile(tmp_path / "pack.zip", "w") as zf:
+        zf.write(tmp_path / "f.ttf", "f.ttf")
+    assert main(argv(["fonts", "unpack", "{tmp}/pack.zip"])) == 0
+    printed = capsys.readouterr().out.strip()
+    assert [p.suffix for p in Path(printed).iterdir()] == [".ttf"]
+    assert main(argv(["fonts", "unpack", "{tmp}/pack.zip", "--json"])) == 0
+    assert json.loads(capsys.readouterr().out) == {"dir": printed}
 
 
 @pytest.mark.parametrize("command", ["apply", "run-macro", "cht"])

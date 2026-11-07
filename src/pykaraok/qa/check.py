@@ -15,7 +15,6 @@ from ..ass.document import AssDocument
 
 # libass ass_parse.c: these tags set detect_collisions = 0
 _NO_COLLIDE = re.compile(r"\\(pos|move|org|t)\s*\(")
-_TEMPLATE_HEAD = ("template", "code", "mixin")
 
 
 def _f(check, level, message, **data):

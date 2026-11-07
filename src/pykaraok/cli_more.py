@@ -109,8 +109,6 @@ def _out_path(args, ass_path: Path, suffix: str) -> Path:
 
 
 def register(sub, common, add_run_args, out, run_options):
-    from . import cli as _cli
-
     def add_render_common(p, with_range=False):
         p.add_argument("ass")
         p.add_argument("--video", help="video to draw on (default: the Video File recorded in the .ass)")
@@ -208,7 +206,7 @@ def register(sub, common, add_run_args, out, run_options):
     p.set_defaults(fn=lambda a: cmd_fonts_check(a, out))
     p = common(fsub.add_parser("unpack", help="extract a zip font pack into the cache and print the directory"))
     p.add_argument("zip")
-    p.set_defaults(fn=lambda a: out(a, {"dir": str(__import__("pykaraok.fonts", fromlist=["x"]).unpack_zip(Path(a.zip)))}))
+    p.set_defaults(fn=lambda a: cmd_fonts_unpack(a, out))
 
     from . import cli_build
     cli_build.register(sub, common, add_run_args, out, run_options)
@@ -347,6 +345,13 @@ def cmd_check(args, out):
     text += f"\n{errors} errors, {warns} warnings"
     out(args, {"findings": findings, "errors": errors, "warnings": warns}, text)
     return 1 if errors else 0
+
+
+def cmd_fonts_unpack(args, out):
+    from .fonts import unpack_zip
+    d = str(unpack_zip(Path(args.zip)))
+    out(args, {"dir": d}, d)
+    return 0
 
 
 def cmd_fonts_check(args, out):

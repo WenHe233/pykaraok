@@ -54,11 +54,6 @@ def format_time(ms: int) -> str:
     return f"{h}:{m:02d}:{s:02d}.{cs:02d}"
 
 
-def lua_tointeger(v) -> int:
-    """lua_tointeger on x64 LuaJIT: C cast, i.e. truncation toward zero."""
-    return int(float(v))
-
-
 # ---------------------------------------------------------------- strings
 
 def inline_string_encode(s: str) -> str:

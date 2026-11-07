@@ -138,7 +138,7 @@ def path_to_ass(path: pathops.Path, decimals: int = 2, scale: float = 1.0, ox: f
 
 def shapely_to_ass(geom, ox: float = 0.0, oy: float = 0.0, scale: float = 1.0, decimals: int = 2) -> str:
     """Polygons (with holes) -> drawing; exterior and holes wound oppositely so holes stay empty."""
-    from shapely.geometry import MultiPolygon, Polygon
+    from shapely.geometry import Polygon
     from shapely.geometry.polygon import orient
 
     def ring(coords):

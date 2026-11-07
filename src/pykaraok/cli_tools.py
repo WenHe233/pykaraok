@@ -70,19 +70,18 @@ def cmd_cht(args, out):
     doc.save(dst)
     data = rep.to_dict()
     data["output"] = str(dst)
-    if args.fonts or True:
-        from .cli_more import default_fonts
-        from .qa.check import check_fonts
-        conv = AssDocument.load(dst)
-        conv.events = [e for e in conv.events if e["style"] in args.styles.split(",")]
-        data["fonts"] = check_fonts(conv, default_fonts(src, args.fonts))
+    from .cli_more import default_fonts
+    from .qa.check import check_fonts
+    conv = AssDocument.load(dst)
+    conv.events = [e for e in conv.events if e["style"] in args.styles.split(",")]
+    data["fonts"] = check_fonts(conv, default_fonts(src, args.fonts))
     lines = [f"{dst}: {rep.changed}/{rep.lines} lines changed ({rep.engine})"]
     for s in rep.samples[:3]:
         lines.append(f"  {s['before'][:60]}\n  -> {s['after'][:60]}")
     for lc in rep.length_changed:
         lines.append(f"warning: event {lc['event']} changed length: {lc['before']} -> {lc['after']} "
                      "(per-character \\k timing would shift)")
-    for f in data.get("fonts", []):
+    for f in data["fonts"]:
         if f["level"] == "error":
             lines.append("error: " + f["message"])
     out(args, data, "\n".join(lines))
