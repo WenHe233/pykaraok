@@ -47,6 +47,7 @@ python -m pytest -q
 
 ## 写代码时注意
 
+- **留意 `.gitignore`。** 根目录的 `build/` 是打包产物，`src/pykaraok/build/` 是源码，靠 `.gitignore` 里的例外才能提交。`tests/test_packaging.py` 会检查项目文件没有被忽略。
 - **含反斜杠的文件用写文件工具写**，不要用 Bash heredoc 或 `sed`：Bash 工具会把 `\\` 吞成 `\`。
 - 在 Windows 上用 Python 写文本时指定 `newline="\n"`，或者用 `write_bytes`。
 - LuaJIT 在 Windows 上用 SEH 异常实现 Lua 错误。pytest 里已关闭 faulthandler，否则每次 pcall 都会打印一条 “fatal exception”。

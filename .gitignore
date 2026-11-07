@@ -2,6 +2,8 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 build/
+# build/ above is setuptools output; this one is the source package
+!src/pykaraok/build/
 dist/
 .pytest_cache/
 .venv/
