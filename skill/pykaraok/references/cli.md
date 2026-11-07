@@ -10,7 +10,7 @@ build 和 apply 把输出写到别的目录时，会改写记录的视频、音�
 
 render 不给 `-o` 时，输出写到**当前目录**，文件名为 `<输入文件名>_<类型>`。不要在用户的歌词目录里运行，以免把文件写到那里。
 
-出错时只打印一行 `error: ...`；设置 `PYKARAOK_DEBUG=1` 才显示完整 traceback。
+出错时打印 `error: ...`，退出码为 1；加 `--json` 时错误也是 JSON（`{"error": ..., "type": ...}`）。设置 `PYKARAOK_DEBUG=1` 才显示完整 traceback。
 
 ## 环境
 

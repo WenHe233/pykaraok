@@ -59,7 +59,7 @@ def cmd_cht(args, out):
     from .text.cht import convert_doc
     src, dst = Path(args.input), Path(args.output)
     if src.resolve() == dst.resolve():
-        raise SystemExit("write the traditional version to a new file")
+        raise ValueError("write the traditional version to a new file")
     rules = []
     for r in args.rule:
         a, _, b = r.partition("=")
@@ -102,7 +102,7 @@ def _parse_part(spec: str):
     import re
     m = re.match(r"^(.)(?:@([\d.,\-]+))?(?:\+([\d.,\-]+))?(?:\*([\d.,\-]+))?$", spec)
     if not m:
-        raise SystemExit(f"bad --part {spec!r}")
+        raise ValueError(f"bad --part {spec!r}")
     ch, reg, mv, sc = m.groups()
     p = Part(ch)
     if reg:
@@ -115,7 +115,10 @@ def _parse_part(spec: str):
 
 
 def cmd_draw_compose(args, out):
-    from .draw.compose import compose, path_to_ass
+    try:
+        from .draw.compose import compose, path_to_ass
+    except ImportError as exc:
+        raise RuntimeError(f"draw compose needs skia-pathops: pip install skia-pathops ({exc})") from None
     from .draw.glyphs import resolve_face
     from .fonts import resolve
     face = resolve_face(args.font, resolve(args.fonts))
@@ -177,7 +180,7 @@ def _is_junction(p: Path) -> bool:
 def cmd_skill_install(args, out):
     root = repo_root()
     if not root:
-        raise SystemExit("skill sources not found (install pykaraok from a git checkout with `pip install -e`)")
+        raise RuntimeError("skill sources not found (install pykaraok from a git checkout with `pip install -e`)")
     src = root / "skill" / "pykaraok"
     targets = [Path(t) for t in args.target] if args.target else \
         [Path.home() / ".claude" / "skills", Path.home() / ".agents" / "skills"]

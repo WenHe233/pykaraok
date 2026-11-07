@@ -4,10 +4,25 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import subprocess
 import sys
+import zipfile
 from pathlib import Path
 
 from . import __version__
+
+# What a bad input or environment raises; anything else is a bug and keeps its traceback.
+_EXPECTED_ERRORS = (RuntimeError, OSError, KeyError, ValueError, SyntaxError, ImportError,
+                    subprocess.CalledProcessError, zipfile.BadZipFile)
+
+
+def _error_message(exc: Exception) -> str:
+    if isinstance(exc, subprocess.CalledProcessError):
+        said = (exc.stderr or b"").decode("utf-8", "replace").strip()
+        return f"{Path(exc.cmd[0]).stem} failed: {said[-2000:] or f'exit status {exc.returncode}'}"
+    if isinstance(exc, KeyError) and exc.args:
+        return str(exc.args[0])         # str(KeyError) is the repr of its message
+    return str(exc).strip() or exc.__class__.__name__
 
 
 def _out(args, data: dict, text: str | None = None) -> None:
@@ -250,8 +265,8 @@ def main(argv=None) -> int:
         return args.fn(args)
     try:
         return args.fn(args)
-    except (RuntimeError, FileNotFoundError, KeyError, ValueError, SyntaxError) as exc:
-        msg = str(exc).strip() or exc.__class__.__name__
+    except _EXPECTED_ERRORS as exc:
+        msg = _error_message(exc)
         if getattr(args, "json", False):
             sys.stdout.write(json.dumps({"error": msg, "type": exc.__class__.__name__}, ensure_ascii=False) + "\n")
         else:

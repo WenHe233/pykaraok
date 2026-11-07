@@ -92,7 +92,7 @@ def _range(args, ass_path: Path, pad: float = 1.0) -> tuple[float, float]:
          [e for e in doc.events if e["effect"].lower() in ("karaoke", "kara")] or \
          [e for e in doc.events if not e["comment"]]
     if not ev:
-        raise SystemExit("cannot determine a time range; pass --from and --to")
+        raise ValueError("cannot determine a time range; pass --from and --to")
     t0 = min(e["start_time"] for e in ev) / 1000 - pad
     t1 = max(e["end_time"] for e in ev) / 1000 + pad
     if getattr(args, "start", None) is not None:
@@ -242,6 +242,10 @@ def cmd_sheet(args, out):
 
 def cmd_lines(args, out):
     from .render import review
+    phases = tuple(args.phases.split(","))
+    unknown = [p for p in phases if p not in review.PHASES]
+    if unknown:
+        raise ValueError(f"unknown phase {', '.join(unknown)} (choose from {', '.join(review.PHASES)})")
     ass = Path(args.ass)
     src, video = _source(args, ass)
     prefix = args.output or str(Path.cwd() / f"{ass.stem}_lines")
@@ -249,7 +253,7 @@ def cmd_lines(args, out):
         prefix = prefix[:-4]
     res = review.line_sheets(ass, prefix, src, default_fonts(ass, args.fonts),
                              styles=args.styles.split(",") if args.styles else None,
-                             phases=tuple(args.phases.split(",")), per_sheet=args.per_sheet,
+                             phases=phases, per_sheet=args.per_sheet,
                              crop=parse_rects(args.crop), width=args.width, first=args.first, count=args.count)
     text = "\n".join(f"{r['output']}: lines {r['lines'][0]['index']}-{r['lines'][-1]['index']}" for r in res)
     out(args, {"sheets": res, "video": str(video) if video else None}, text)
@@ -305,6 +309,8 @@ def cmd_perf(args, out):
 
 def cmd_check(args, out):
     from .qa import check as qc
+    if args.steady and not args.original:
+        raise ValueError("--steady needs --original")
     ass = Path(args.ass)
     fonts = default_fonts(ass, args.fonts)
     opts = None
@@ -329,8 +335,6 @@ def cmd_check(args, out):
             findings.append({"check": "jumps", "level": level,
                              "message": f"{info['count']} one-frame jumps in {info['frames']} frames", **info})
         if args.steady:
-            if not args.original:
-                raise SystemExit("--steady needs --original")
             info = frames.steady_diff(args.original, ass, src, fonts, outdir=args.diff_dir, strip_k=args.strip_k)
             level = "warn" if info["changed"] else "info"
             how = " (original compared fully sung, \\k removed)" if info["stripped_k"] else ""
