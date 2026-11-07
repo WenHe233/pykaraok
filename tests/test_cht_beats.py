@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 
 from pykaraok.ass.document import AssDocument
+from pykaraok.audio import beats
 from pykaraok.text import cht
 
 
@@ -27,11 +28,7 @@ def test_convert_doc_only_touches_chosen_styles(data_dir):
     assert any(e["text"] == "这行不转换" for e in doc.events)
 
 
-@pytest.mark.skipif(not shutil.which("ffmpeg"), reason="needs ffmpeg")
-def test_beats_on_click_track(tmp_path):
-    from pykaraok.audio.beats import estimate
-    sr, bpm, first = 22050, 128.0, 0.37
-    dur = 30.0
+def _click_track(sr, bpm, first, dur):
     y = np.zeros(int(sr * dur), np.float32)
     period = 60 / bpm
     t = first
@@ -40,6 +37,30 @@ def test_beats_on_click_track(tmp_path):
         n = int(0.03 * sr)
         y[i:i + n] += np.sin(2 * np.pi * 120 * np.arange(n) / sr) * np.exp(-np.arange(n) / (0.008 * sr))
         t += period
+    return y
+
+
+def test_first_beat_does_not_depend_on_the_fit_being_accepted(monkeypatch):
+    """The comb search times frame starts and the fit window centres, 23 ms later: the first
+    beat was 23 ms early when there were enough onsets for a fit but the fit was rejected."""
+    y = _click_track(22050, 128.0, 0.37, 30.0)
+    monkeypatch.setattr(beats, "load_audio", lambda *args, **kwargs: y)
+    accepted = beats.estimate("x", 0, 30.0)
+    real = np.linalg.lstsq
+    # a period more than 3 % off is rejected
+    monkeypatch.setattr(np.linalg, "lstsq", lambda a, b, rcond=None: (real(a, b, rcond=rcond)[0] * [1.1, 1.0],))
+    rejected = beats.estimate("x", 0, 30.0)
+    assert rejected["matched_onsets"] >= 8
+    assert abs(rejected["first_beat_ms"] - accepted["first_beat_ms"]) < 12, (rejected, accepted)
+
+
+@pytest.mark.skipif(not shutil.which("ffmpeg"), reason="needs ffmpeg")
+def test_beats_on_click_track(tmp_path):
+    from pykaraok.audio.beats import estimate
+    sr, bpm, first = 22050, 128.0, 0.37
+    dur = 30.0
+    y = _click_track(sr, bpm, first, dur)
+    period = 60 / bpm
     path = tmp_path / "click.wav"
     with wave.open(str(path), "wb") as w:
         w.setnchannels(1)

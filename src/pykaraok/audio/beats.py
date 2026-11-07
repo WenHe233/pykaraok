@@ -95,15 +95,19 @@ def estimate(path, t0: float, t1: float, bpm_min: float = 60, bpm_max: float = 2
         if env[j] > np.percentile(env, 75):
             fitted_k.append(k)
             fitted_t.append(j / fps + center)
+    fitted = False
     if len(fitted_k) >= 8:
         A = np.vstack([np.array(fitted_k, float), np.ones(len(fitted_k))]).T
         (period_f, phase_f), *_ = np.linalg.lstsq(A, np.array(fitted_t), rcond=None)
         if abs(period_f - period) / period < 0.03:
             period, best_phase = float(period_f), float(phase_f)
+            fitted = True
+    if not fitted:
+        best_phase += center    # the comb worked on frame starts; fitted_t and the fit are window centres
     resid = []
     for k, t in zip(fitted_k, fitted_t):
         resid.append(abs(t - (best_phase + k * period)))
-    first = t0 + best_phase + (0 if len(fitted_k) >= 8 else center)
+    first = t0 + best_phase
     bpm = 60.0 / period
     return {
         "bpm": round(bpm, 3),
